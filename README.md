@@ -1,2 +1,2 @@
 # GATE
-Graph transformer for estimating protein model accuracy
+Graph transformers for estimating protein model accuracy
