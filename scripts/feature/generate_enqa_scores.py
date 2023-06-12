@@ -26,25 +26,36 @@ def mergePDB(inputPDB, outputPDB, newStart=1):
     os.remove(outputPDB + '.tmp')
 
 
-def generate_enqa_scores(indir, outdir):
+def generate_enqa_scores(indir, outdir, targetname):
 
     os.chdir(EnQA_dir)
     
     modeldir = outdir + '/models'
     makedir_if_not_exists(modeldir)
 
-    pdbs = sorted(os.listdir(indir))
-    for pdb in pdbs:
-        if os.path.exists(outdir + '/' + pdb + '.npy'):
-            continue
-        mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
-        cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}"
-        try:
-            print(cmd)
-            os.system(cmd)
-        except Exception as e:
-            print(e)
-
+    target_dict = {'model': [], 'score': []}
+    
+    for pdb in sorted(os.listdir(indir)):
+        resultfile = outdir + '/' + pdb + '.npy'
+        if not os.path.exists(resultfile):
+            mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
+            cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}"
+            try:
+                print(cmd)
+                os.system(cmd)
+            except Exception as e:
+                print(e)
+            
+        target_dict['model'] += [pdb]
+        if os.path.exists(resultfile):
+            plddt_scores = np.load(resultfile)
+            global_score = np.mean(plddt_scores)
+            target_dict['score'] += [global_score]
+        else:
+            target_dict['score'] += [0.0]
+    
+    pd.DataFrame(target_dict).to_csv(outdir + '/' + targetname + '.csv')
+    
 
 if __name__ == '__main__':
 
@@ -58,5 +69,5 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
 
-        generate_enqa_scores(args.indir + '/' + target, outdir)
+        generate_enqa_scores(args.indir + '/' + target, outdir, target)
 
