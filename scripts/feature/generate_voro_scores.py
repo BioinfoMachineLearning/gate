@@ -41,9 +41,8 @@ def generate_voro_scores(indir, outdir, targetname):
     dark_scores = list(df['voromqa_dark'])
 
     for pdb in sorted(os.listdir(indir)):
-        pdbname = pdb.replace('.pdb', '')
-        if pdbname not in models:
-            models += [pdbname]
+        if pdb + '.pdb' not in models:
+            models += [pdb + '.pdb']
             gnn_scores += [0.0]
             gnn_pcad_scores += [0.0]
             dark_scores += [0.0]
