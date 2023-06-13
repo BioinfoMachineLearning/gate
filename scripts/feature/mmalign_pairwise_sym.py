@@ -58,11 +58,7 @@ def run_pairwise(mmalign_program, indir, scoredir, outfile):
                 raise Exception(f"cannot find {mmalign_file2}")
             tmscore2 = read_mmalign(mmalign_file2)
 
-            tmscore = tmscore1
-            if float(tmscore1) > float(tmscore2):
-                tmscore = tmscore2
-
-            scores_dict[f"{pdb1}_{pdb2}"] = tmscore2
+            scores_dict[f"{pdb1}_{pdb2}"] = min(tmscore1, tmscore2)
 
     data_dict = {}
     for i in range(len(pdbs)):
