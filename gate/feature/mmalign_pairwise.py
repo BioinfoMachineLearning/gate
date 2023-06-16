@@ -4,7 +4,7 @@ from multiprocessing import Pool
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-from util import *
+from gate.tool.utils import *
 
 def read_mmalign(infile):
     for line in open(infile):

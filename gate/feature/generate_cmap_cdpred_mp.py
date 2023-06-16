@@ -2,14 +2,23 @@ import os, sys, argparse, time
 from multiprocessing import Pool
 import numpy as np
 import pandas as pd
-from util import *
+from gate.tool.utils import *
 import re, subprocess
 import itertools
-
-af_program = "/home/bml_casp15/MULTICOM_dev/pipelines/default_proj/monomer_default.py"
-option_file = "/home/bml_casp15/MULTICOM_dev/bin/db_option_default_af"
+from gate.tool.hhblits import HHBlits
+from gate.tool.jackhmmer import Jackhmmer
 
 PDB_CHAIN_IDS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+
+hhblits_databases = ['/home/bml_casp15/BML_CASP15/databases/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt']
+jackhmmer_database = '/home/bml_casp15/BML_CASP15/databases/uniref90/uniref90.fasta' 
+hhblits_binary_path = '/home/bml_casp15/anaconda3/envs/bml_casp15/bin/hhblits'
+jackhmmer_binary = '/home/bml_casp15/anaconda3/envs/bml_casp15/bin/jackhmmer'
+
+def run_msa_tool(inparams):
+    msa_runner, input_fasta_path, msa_out_path = inparams
+    msa_runner.query(input_fasta_path, msa_out_path)
+
 
 class Chain:
     def __init__(self, sequence, count):
@@ -34,15 +43,6 @@ def parse_fasta(fasta_string):
 
     return sequences, descriptions
 
-def run_multicom3_default_af(infasta, outdir):
-    cmd = f"python {af_program} --option_file {option_file} --fasta_path {infasta} --output_dir {outdir}"
-    try:
-        print(cmd)
-        os.system(cmd)
-    except Exception as e:
-        print(e)
-
-
 def generate_cmap_cdpred(targetname, fasta_path, outdir):
 
     sequences, descriptions = parse_fasta(open(fasta_path).read())
@@ -62,18 +62,27 @@ def generate_cmap_cdpred(targetname, fasta_path, outdir):
     
     # Extract dimers
     unique_sequences = list(sequence_id_map.keys())
+    msa_process_list = []
     for sequence in unique_sequences:
-        workdir = f"{outdir}/{sequence_id_map[sequence1]['chain_id']}"
+        workdir = f"{outdir}/{sequence_id_map[sequence]['chain_id']}"
         makedir_if_not_exists(workdir)
 
-        monomer_fasta = workdir + '/' + targetname + '.fasta'
-        monomer_outdir = workdir + '/alphafold'
+        monomer_fasta = workdir + '/' + sequence_id_map[sequence]['chain_id'] + '.fasta'
         with open(monomer_fasta, 'w') as fw:
-            fw.write(f">{targetname}\n")
+            fw.write(f">{sequence_id_map[sequence]['chain_id']}\n")
             fw.write(f"{sequence}\n")
 
-            run_multicom3_default_af(monomer_fasta, monomer_outdir)
-            
+        a3mfile = monomer_fasta.replace('.fasta', '.a3m')
+        if not os.path.exists(a3mfile) or len(open(a3mfile).readlines()) == 0:
+            hhblits_runner = HHBlits(binary_path=hhblits_binary_path, databases=hhblits_databases)
+            msa_process_list.append([hhblits_runner, monomer_fasta, a3mfile])
+           
+        stofile = monomer_fasta.replace('.fasta', '.sto')
+        if not os.path.exists(stofile) or len(open(stofile).readlines()) == 0:
+            jackhmmer_runner = Jackhmmer(binary_path=jackhmmer_binary, database_path=jackhmmer_database)
+            msa_process_list.append([jackhmmer_runner, monomer_fasta, stofile])
+
+    return msa_process_list
 
 
 if __name__ == '__main__':
@@ -84,11 +93,22 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    process_list = []
+
     for fastafile in sorted(os.listdir(args.fastadir)):
         targetname = fastafile.replace('.fasta', '')
         print(f"Processing {targetname}")
         outdir = args.outdir + '/' + targetname
         makedir_if_not_exists(outdir)
 
-        generate_cmap_cdpred(targetname, args.fastadir + '/' + fastafile, outdir)
+        msa_process_list = generate_cmap_cdpred(targetname, args.fastadir + '/' + fastafile, outdir)
+
+        process_list += msa_process_list
+    
+    pool = Pool(processes=15)
+    results = pool.map(run_msa_tool, process_list)
+    pool.close()
+    pool.join()
+
+
 

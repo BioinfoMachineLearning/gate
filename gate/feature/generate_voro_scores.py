@@ -3,7 +3,7 @@ from multiprocessing import Pool
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-from util import *
+from gate.tool.utils import *
 import re, subprocess
 
 voro_dir = '/home/bml_casp15/tools/ftdmp/'

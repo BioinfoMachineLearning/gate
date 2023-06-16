@@ -2,7 +2,7 @@ import os, sys, argparse, time
 from biopandas.pdb import PandasPdb
 import numpy as np
 import pandas as pd
-from util import makedir_if_not_exists
+from gate.tool.utils import makedir_if_not_exists
 
 def generate_af_scores(indir, outdir, targetname):
     target_dict = {'model': [], 'plddt': []}
