@@ -6,7 +6,6 @@ import glob
 import os
 import subprocess
 from typing import Any, Mapping, Optional, Sequence
-from absl import logging
 from gate.tool import utils
 
 _HHBLITS_DEFAULT_P = 20
@@ -63,7 +62,6 @@ class HHBlits:
     for database_path in self.databases:
       print(f"Using database: {database_path}")
       if not glob.glob(database_path + '_*'):
-        logging.error('Could not find HHBlits database %s', database_path)
         raise ValueError(f'Could not find HHBlits database {database_path}')
 
     self.n_cpu = n_cpu
@@ -109,21 +107,14 @@ class HHBlits:
           cmd += ['-Z', str(self.z)]
       cmd += db_cmd
 
-      logging.info('Launching subprocess "%s"', ' '.join(cmd))
       print(cmd)
       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-      with utils.timing('HHblits query'):
-          stdout, stderr = process.communicate()
-          retcode = process.wait()
+      stdout, stderr = process.communicate()
+      retcode = process.wait()
 
       if retcode:
           # Logs have a 15k character limit, so log HHblits error line by line.
-          logging.error('HHblits failed. HHblits stderr begin:')
-          for error_line in stderr.decode('utf-8').splitlines():
-              if error_line.strip():
-                  logging.error(error_line.strip())
-          logging.error('HHblits stderr end')
           raise RuntimeError('HHblits failed\nstdout:\n%s\n\nstderr:\n%s\n' % (
               stdout.decode('utf-8'), stderr[:500_000].decode('utf-8')))
 

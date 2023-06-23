@@ -8,7 +8,8 @@ import itertools
 from gate.tool.hhblits import HHBlits
 from gate.tool.jackhmmer import Jackhmmer
 from gate.tool.protein import get_sequence, split_pdb
-
+from gate.tool.alignment import *
+from gate.tool.species_interact_v3 import Species_interact_v3
 
 PDB_CHAIN_IDS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
@@ -17,33 +18,32 @@ jackhmmer_database = '/home/bml_casp15/BML_CASP15/databases/uniref90/uniref90.fa
 hhblits_binary_path = '/home/bml_casp15/anaconda3/envs/bml_casp15/bin/hhblits'
 jackhmmer_binary = '/home/bml_casp15/anaconda3/envs/bml_casp15/bin/jackhmmer'
 
+cdpred_program = '/home/jl4mc/gate/gate/feature/run_cdpred.sh'
+
 def run_msa_tool(inparams):
     msa_runner, input_fasta_path, msa_out_path = inparams
     msa_runner.query(input_fasta_path, msa_out_path)
-
 
 class Chain:
     def __init__(self, sequence, count):
         self.sequence = sequence
         self.count = count
 
+def run_cdpred_on_dimers(inparams):
 
-def parse_fasta(fasta_string):
-    sequences = []
-    descriptions = []
-    index = -1
-    for line in fasta_string.splitlines():
-        line = line.strip()
-        if line.startswith('>'):
-            index += 1
-            descriptions.append(line[1:])  # Remove the '>' at the beginning.
-            sequences.append('')
-            continue
-        elif not line:
-            continue  # Skip blank lines.
-        sequences[index] += line
+    name1, name2, chain_pdbs, a3m, outdir = inparams
 
-    return sequences, descriptions
+    if len(chain_pdbs) == 1:
+        cmd = f"sh {cdpred_program} {name1}_{name2} {chain_pdbs[0]} {a3m} homodimer {outdir}"
+    else:
+        cmd = f"sh {cdpred_program} {name1}_{name2} '{' '.join(chain_pdbs)}' {a3m} heterodimer {outdir}"
+
+    try:
+        print(cmd)
+        os.system(cmd)
+    except Exception as e:
+        print(e)
+
 
 def generate_cmap_cdpred(targetname, fasta_path, outdir, pairwise_score_csv, model_dir):
 
@@ -63,6 +63,7 @@ def generate_cmap_cdpred(targetname, fasta_path, outdir, pairwise_score_csv, mod
     print("Detected stoichiometry: " + stoichiometry)
     
     # Extract dimers
+    print("Start to generate monomer alignments...")
     unique_sequences = list(sequence_id_map.keys())
     msa_process_list = []
     for sequence in unique_sequences:
@@ -91,6 +92,7 @@ def generate_cmap_cdpred(targetname, fasta_path, outdir, pairwise_score_csv, mod
     pool.join()
 
     # find the model with the highest pairwise score - average similarity scores by column
+    print("Searching the suitable model based on pairwise scores...")
     reference_model_dir = outdir + '/refer_model'
     makedir_if_not_exists(reference_model_dir)
 
@@ -101,6 +103,7 @@ def generate_cmap_cdpred(targetname, fasta_path, outdir, pairwise_score_csv, mod
     while True:
         select_model_idx = np.argmax(tmscores)
         selected_model = models[select_model_idx]
+        print(f"Checking {selected_model}")
         chain_models = split_pdb(model_dir + '/' + selected_model, reference_model_dir)
         # need to pair the chain pdb and sequence
         for sequence in unique_sequences:
@@ -110,25 +113,47 @@ def generate_cmap_cdpred(targetname, fasta_path, outdir, pairwise_score_csv, mod
                     chain_pdbs[sequence_id_map[sequence]['chain_id']] = chain_model
                     break
 
-        if len(chain_pdbs) == len(sequence):
+        if len(chain_pdbs) == len(unique_sequences):
+            print(f"Sucess!")
             break
         else:
             chain_pdbs = {}
             tmscores[select_model_idx] = 0.0
-
-
+            print(f"Cannot map the sequences: {len(chain_pdbs)} and {len(unique_sequences)}!")
+    
+    run_cdpred_list = []
     # homodimers
-    for i in range(len(unique_sequences)):
+    print("Processing homodimers...")
+    for sequence in unique_sequences:
         if int(sequence_id_map[sequence]['count']) >= 2:
-            workdir = f"{outdir}/{sequence_id_map[sequence1]['chain_id']}2"
+            chain_id = sequence_id_map[sequence]['chain_id']
+            workdir = f"{outdir}/{chain_id}2/"
             makedir_if_not_exists(workdir)
-            
-
-        
-
+            run_cdpred_list.append([targetname + chain_id, targetname + chain_id, [chain_pdbs[chain_id]], f"{outdir}/{chain_id}/{chain_id}.a3m", workdir])
+            #run_cdpred_on_dimers([targetname + chain_id, targetname + chain_id, [chain_pdbs[chain_id]], f"{outdir}/{chain_id}/{chain_id}.a3m", workdir])
 
     # heterodimers
+    print("Processing heterodimers...")
+    for i in range(len(unique_sequences)):
+        sequence1 = unique_sequences[i]
+        for j in range(i+1, len(unique_sequences)):
+            sequence2 = unique_sequences[j]
+            
+            chain_id1 = sequence_id_map[sequence1]['chain_id']
+            chain_id2 = sequence_id_map[sequence2]['chain_id']
 
+            workdir = f"{outdir}/{chain_id1}_{chain_id2}"
+            makedir_if_not_exists(workdir)
+
+            paired_a3m = pair_a3m(f"{outdir}/{chain_id1}/{chain_id1}.sto", f"{outdir}/{chain_id2}/{chain_id2}.sto", workdir)
+
+            run_cdpred_list.append([targetname + chain_id1, targetname + chain_id2, [chain_pdbs[chain_id1], chain_pdbs[chain_id2]], paired_a3m, workdir])
+            # run_cdpred_on_dimers([targetname + chain_id1, targetname + chain_id2, [chain_pdbs[chain_id1], chain_pdbs[chain_id2]], paired_a3m, workdir])
+
+    pool = Pool(processes=5)
+    results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
+    pool.close()
+    pool.join()
 
 
 if __name__ == '__main__':
@@ -147,7 +172,8 @@ if __name__ == '__main__':
 
         pairwise_score_csv = args.pairwise_dir + '/' + targetname + '.csv'
         if not os.path.exists(pairwise_score_csv):
-            raise Exception(f"Cannot find the pairwise score file: {pairwise_score_csv}")
+            print(f"Cannot find the pairwise score file: {pairwise_score_csv}")
+            continue
 
         outdir = args.outdir + '/' + targetname
         makedir_if_not_exists(outdir)

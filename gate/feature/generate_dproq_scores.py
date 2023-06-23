@@ -10,7 +10,10 @@ from subprocess import call
 dproqa_dir = '/home/bml_casp15/tools/DProQA/'
 dproqa_program = 'inference.py'
 
-def generate_dproqa_scores(indir, outdir, targetname):
+def generate_dproqa_scores(indir, outdir, targetname, model_csv):
+
+    model_info_df = pd.read_csv(model_csv)
+    model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
 
     os.chdir(dproqa_dir)
     
@@ -35,14 +38,18 @@ def generate_dproqa_scores(indir, outdir, targetname):
     df = pd.read_csv(resultfile)
     models = list(df['MODEL'])
     scores = list(df['PRED_DOCKQ'])
+    scores_norm = []
+    for model, dproqa_score in zip(models, scores):
+        scores_norm += [dproqa_score * float(model_size_ratio[model])]
 
     for pdb in sorted(os.listdir(indir)):
         pdbname = pdb.replace('.pdb', '')
         if pdbname not in models:
             models += [pdbname]
             scores += [0.0]
+            scores_norm += [0.0]
     
-    pd.DataFrame({'model': models, 'DockQ': scores}).to_csv(outdir + '/' + targetname + '.csv')
+    pd.DataFrame({'model': models, 'DockQ': scores, 'DockQ_norm': scores_norm}).to_csv(outdir + '/' + targetname + '.csv')
 
 
 if __name__ == '__main__':
@@ -50,6 +57,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
+    parser.add_argument('--interface_dir', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -57,5 +65,5 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
 
-        generate_dproqa_scores(args.indir + '/' + target, outdir, target)
+        generate_dproqa_scores(args.indir + '/' + target, outdir, target, interface_dir + '/' + target + '.csv')
 

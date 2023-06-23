@@ -8,7 +8,6 @@ import os
 import subprocess
 from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib import request
-from absl import logging
 from gate.tool import utils
 
 class Jackhmmer:
@@ -52,7 +51,6 @@ class Jackhmmer:
 
     print(f"Using database: {self.database_path}")
     if not os.path.exists(self.database_path):
-      logging.error('Could not find Jackhmmer database %s', database_path)
       raise ValueError(f'Could not find Jackhmmer database {database_path}')
 
     self.n_cpu = n_cpu
@@ -105,12 +103,10 @@ class Jackhmmer:
 
     cmd = [self.binary_path] + cmd_flags + [input_fasta_path, self.database_path]
 
-    logging.info('Launching subprocess "%s"', ' '.join(cmd))
     print(cmd)
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    with util.timing(f'Jackhmmer ({os.path.basename(self.database_path)}) query'):
-        _, stderr = process.communicate()
-        retcode = process.wait()
+    _, stderr = process.communicate()
+    retcode = process.wait()
 
     if retcode:
         raise RuntimeError('Jackhmmer failed\nstderr:\n%s\n' % stderr.decode('utf-8'))

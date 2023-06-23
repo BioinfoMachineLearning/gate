@@ -333,10 +333,11 @@ def generate_icps_scores(targetname, fasta_path, outdir, pairwise_score_csv, inp
             jackhmmer_runner = Jackhmmer(binary_path=jackhmmer_binary, database_path=jackhmmer_database)
             msa_process_list.append([jackhmmer_runner, monomer_fasta, stofile])
 
-    # pool = Pool(processes=15)
-    # results = pool.map(run_msa_tool, msa_process_list)
-    # pool.close()
-    # pool.join()
+
+    pool = Pool(processes=15)
+    results = pool.map(run_msa_tool, msa_process_list)
+    pool.close()
+    pool.join()
 
     # find the model with the highest pairwise score - average similarity scores by column
     print("Searching the suitable model based on pairwise scores...")
@@ -393,11 +394,50 @@ def generate_icps_scores(targetname, fasta_path, outdir, pairwise_score_csv, inp
             paired_a3m = pair_a3m(f"{msadir}/{chain_id1}/{chain_id1}.sto", f"{msadir}/{chain_id2}/{chain_id2}.sto", cdpred_dir)
             run_cdpred_list.append([targetname + chain_id1, targetname + chain_id2, [chain_pdbs[chain_id1], chain_pdbs[chain_id2]], paired_a3m, cdpred_dir])
                 
-    # pool = Pool(processes=10)
-    # results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
-    # pool.close()
-    # pool.join()
-    return msa_process_list, run_cdpred_list
+    pool = Pool(processes=10)
+    results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
+    pool.close()
+    pool.join()
+
+    # start to calculate icps score
+    # print("Start to calculate icps and recall score...")
+    # data_dict = {'model': [], 'icps': [], 'recall': []}
+    # for model in sorted(os.listdir(input_model_dir)):
+    #     chain_dir = model_dir + '/' + model + '/monomer_pdbs' 
+    #     icps_model_scores = []
+    #     recall_model_scores = []
+    #     for pair in valid_contact_pairs:
+    #         cmap_files = read_files_by_prefix_and_ext(chain_dir, pair, 'cmap')
+    #         if len(cmap_files) == 0:
+    #             continue
+            
+    #         fullname = '_'.join([targetname + chain for chain in pair])
+    #         cdpred_cmap_file = f"{outdir}/cdpred/{'_'.join(list(pair))}/predmap/{fullname}.htxt"
+    #         icps_model_pair_scores = []
+    #         recall_model_pair_scores = []
+
+    #         cal_list = [[cdpred_cmap_file, cmap_file] for cmap_file in cmap_files]
+    #         pool = Pool(processes=30)
+    #         results = pool.map(icps_recall_wrappeer, cal_list)
+    #         pool.close()
+    #         pool.join()
+
+    #         for score1, score2 in results:
+    #             icps_model_pair_scores += [score1]
+    #             recall_model_pair_scores += [score2]
+
+    #         icps_model_scores += [np.max(np.array(icps_model_pair_scores))]
+    #         recall_model_scores += [np.max(np.array(recall_model_pair_scores))]
+        
+    #     data_dict['model'] += [model]
+    #     data_dict['icps'] += [np.sum(np.array(icps_model_scores)) / len(valid_contact_pairs)]
+    #     data_dict['recall'] += [np.sum(np.array(recall_model_scores)) / len(valid_contact_pairs)]
+    
+    # pd.DataFrame(data_dict).to_csv(outdir + '/' + targetname + '.csv')
+
+def icps_recall_wrappeer(inparams):
+    cdpred_cmap_file, cmap_file = inparams
+    return get_icps_score(cdpred_cmap_file, cmap_file), get_recall_score(cdpred_cmap_file, cmap_file)
 
 if __name__ == '__main__':
 
@@ -409,8 +449,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    msa_process_list = []
-    run_cdpred_list = []
     for fastafile in sorted(os.listdir(args.fastadir)):
         targetname = fastafile.replace('.fasta', '')
         print(f"Processing {targetname}")
@@ -427,18 +465,5 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + targetname
         makedir_if_not_exists(outdir)
 
-        target_msa_list, target_cdpred_list = generate_icps_scores(targetname, args.fastadir + '/' + fastafile, outdir, pairwise_score_csv, args.modeldir + '/' + targetname)
-
-        msa_process_list += target_msa_list
-        run_cdpred_list += target_cdpred_list
-
-    pool = Pool(processes=15)
-    results = pool.map(run_msa_tool, msa_process_list)
-    pool.close()
-    pool.join()
-
-    pool = Pool(processes=10)
-    results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
-    pool.close()
-    pool.join()
+        generate_icps_scores(targetname, args.fastadir + '/' + fastafile, outdir, pairwise_score_csv, args.modeldir + '/' + targetname)
 
