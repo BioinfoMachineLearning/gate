@@ -190,22 +190,27 @@ def find_interaction_pairs_from_model(inparams):
 
     print(f"Extracting interaction pairs from {inpdb}")
 
-    # get chain mapping from pdb to fasta file
-    chain_mapping = get_chain_mapping(sequence_id_map=sequence_id_map, 
-                                      inpdb=inpdb,
-                                      pdbdir=pdbdir)
+    model_contact_pairs = {}
+    pair_json_file = pdbdir + '/pair.json'
+    if not os.path.exists(pair_json_file):
+        # get chain mapping from pdb to fasta file
+        chain_mapping = get_chain_mapping(sequence_id_map=sequence_id_map, 
+                                        inpdb=inpdb,
+                                        pdbdir=pdbdir)
 
-    # find contact pairs
-    model_contact_pairs = get_contact_pairs(sequence_id_map=sequence_id_map,
-                                            chain_mapping=chain_mapping, pdbdir=pdbdir)
+        # find contact pairs
+        model_contact_pairs = get_contact_pairs(sequence_id_map=sequence_id_map,
+                                                chain_mapping=chain_mapping, pdbdir=pdbdir)
+
+        print(model_contact_pairs)
+        with open(pdbdir + '/pair.json', 'w') as fw:
+            json.dump(model_contact_pairs, fw, indent = 4)
+    else:
+        with open(pair_json_file) as f:
+            model_contact_pairs = json.load(f)
 
     if len(model_contact_pairs) == 0:
         print(f"Cannot find any pairs for {inpdb}")
-    else:
-        print(model_contact_pairs)
-        with open(pdbdir + '/pair.json', 'w') as fw:
-            json.dump(model_contact_pairs, fw, indent = 4) 
-            fw.write(json.dumps(model_contact_pairs))
 
     return inpdb, model_contact_pairs
 
@@ -215,8 +220,10 @@ def get_icps_score(cdpred_cmap_file, model_cmap_file):
     model_cmap = np.loadtxt(model_cmap_file)
     prob_map = np.multiply(cdpred_cmap, model_cmap)
     indices = np.argwhere(prob_map > 0)
-    prob_score = np.mean(np.array([prob_map[row_index, col_index] for row_index, col_index in indices]))
-    return prob_score
+    if len(indices) > 0:
+        prob_score = np.mean(np.array([prob_map[row_index, col_index] for row_index, col_index in indices]))
+        return prob_score
+    return 0.0
 
 def get_recall_score(cdpred_cmap_file, model_cmap_file, prob_threshold=0.2):
     cdpred_cmap = np.loadtxt(cdpred_cmap_file)
@@ -400,40 +407,43 @@ def generate_icps_scores(targetname, fasta_path, outdir, pairwise_score_csv, inp
     pool.join()
 
     # start to calculate icps score
-    # print("Start to calculate icps and recall score...")
-    # data_dict = {'model': [], 'icps': [], 'recall': []}
-    # for model in sorted(os.listdir(input_model_dir)):
-    #     chain_dir = model_dir + '/' + model + '/monomer_pdbs' 
-    #     icps_model_scores = []
-    #     recall_model_scores = []
-    #     for pair in valid_contact_pairs:
-    #         cmap_files = read_files_by_prefix_and_ext(chain_dir, pair, 'cmap')
-    #         if len(cmap_files) == 0:
-    #             continue
+    print("Start to calculate icps and recall score...")
+    data_dict = {'model': [], 'icps': [], 'recall': []}
+    for model in sorted(os.listdir(input_model_dir)):
+        chain_dir = model_dir + '/' + model + '/monomer_pdbs' 
+        icps_model_scores = []
+        recall_model_scores = []
+        for pair in valid_contact_pairs:
+            cmap_files = read_files_by_prefix_and_ext(chain_dir, pair, 'cmap')
+            # print(cmap_files)
+            if len(cmap_files) == 0:
+                continue
             
-    #         fullname = '_'.join([targetname + chain for chain in pair])
-    #         cdpred_cmap_file = f"{outdir}/cdpred/{'_'.join(list(pair))}/predmap/{fullname}.htxt"
-    #         icps_model_pair_scores = []
-    #         recall_model_pair_scores = []
+            fullname = '_'.join([targetname + chain for chain in pair])
+            cdpred_cmap_file = f"{outdir}/cdpred/{'_'.join(list(pair))}/predmap/{fullname}.htxt"
+            icps_model_pair_scores = []
+            recall_model_pair_scores = []
 
-    #         cal_list = [[cdpred_cmap_file, cmap_file] for cmap_file in cmap_files]
-    #         pool = Pool(processes=30)
-    #         results = pool.map(icps_recall_wrappeer, cal_list)
-    #         pool.close()
-    #         pool.join()
+            cal_list = [[cdpred_cmap_file, cmap_file] for cmap_file in cmap_files]
+            # print(cal_list)
+            pool = Pool(processes=60)
+            results = pool.map(icps_recall_wrappeer, cal_list)
+            pool.close()
+            pool.join()
 
-    #         for score1, score2 in results:
-    #             icps_model_pair_scores += [score1]
-    #             recall_model_pair_scores += [score2]
+            for score1, score2 in results:
+                icps_model_pair_scores += [score1]
+                recall_model_pair_scores += [score2]
 
-    #         icps_model_scores += [np.max(np.array(icps_model_pair_scores))]
-    #         recall_model_scores += [np.max(np.array(recall_model_pair_scores))]
+            icps_model_scores += [np.max(np.array(icps_model_pair_scores))]
+            recall_model_scores += [np.max(np.array(recall_model_pair_scores))]
         
-    #     data_dict['model'] += [model]
-    #     data_dict['icps'] += [np.sum(np.array(icps_model_scores)) / len(valid_contact_pairs)]
-    #     data_dict['recall'] += [np.sum(np.array(recall_model_scores)) / len(valid_contact_pairs)]
+        data_dict['model'] += [model]
+        # print(icps_model_scores)
+        data_dict['icps'] += [np.sum(np.array(icps_model_scores)) / len(valid_contact_pairs)]
+        data_dict['recall'] += [np.sum(np.array(recall_model_scores)) / len(valid_contact_pairs)]
     
-    # pd.DataFrame(data_dict).to_csv(outdir + '/' + targetname + '.csv')
+    pd.DataFrame(data_dict).to_csv(outdir + '/' + targetname + '.csv')
 
 def icps_recall_wrappeer(inparams):
     cdpred_cmap_file, cmap_file = inparams
