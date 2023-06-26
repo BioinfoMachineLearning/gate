@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 from gate.tool.utils import makedir_if_not_exists
 
-def generate_af_scores(indir, outdir, targetname, model_csv):
+def generate_af_scores(indir: str, 
+                       outdir: str, 
+                       targetname: str, 
+                       model_csv: str):
 
     model_info_df = pd.read_csv(model_csv)
     model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
@@ -50,5 +53,8 @@ if __name__ == '__main__':
     for target in os.listdir(args.indir):
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
-        generate_af_scores(args.indir + '/' + target, outdir, target, interface_dir + '/' + target + '.csv')
+        generate_af_scores(indir=args.indir + '/' + target, 
+                           outdir=outdir, 
+                           targetname=target, 
+                           model_csv=args.interface_dir + '/' + target + '/' + target + '.csv')
 

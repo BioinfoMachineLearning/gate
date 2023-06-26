@@ -6,9 +6,13 @@ from gate.tool.utils import *
 import re, subprocess
 import itertools
 from gate.tool.protein import *
+from gate.tool.alignment import parse_fasta
 
-
-def generate_cmap_cdpred(targetname, fasta_path, input_model_dir, cdpreddir, outdir):
+def generate_interface_model_size(targetname: str, 
+                                  fasta_path: str, 
+                                  input_model_dir: str, 
+                                  cdpreddir: str, 
+                                  outdir: str):
 
     # read sequences from fasta file
     sequences, descriptions = parse_fasta(open(fasta_path).read())
@@ -18,10 +22,10 @@ def generate_cmap_cdpred(targetname, fasta_path, input_model_dir, cdpreddir, out
     data_dict = {'model': [], 'interface_size_norm': [], 'model_size_norm': []}
     for model in sorted(os.listdir(input_model_dir)):
 
-        chain_pdb_dir = cdpreddir + '/' + model + '/monomer_pdbs' 
+        chain_pdb_dir = cdpreddir + '/models/' + model + '/monomer_pdbs' 
 
         cmap_files = read_files_by_prefix_and_ext(indir=chain_pdb_dir, ext='cmap')
-
+        # print(cmap_files)
         interface_size = 0
         for cmap_file in cmap_files:
             model_cmap = np.loadtxt(cmap_file)
@@ -29,6 +33,7 @@ def generate_cmap_cdpred(targetname, fasta_path, input_model_dir, cdpreddir, out
 
         aligned_model_size = 0
         aligned_pdb_files = read_files_by_prefix_and_ext(indir=chain_pdb_dir, ext='aligned')
+        print(aligned_pdb_files)
         for aligned_pdb_file in aligned_pdb_files:
             parser = PDBParser(QUIET=True)
             structure = parser.get_structure('', aligned_pdb_file)
@@ -54,11 +59,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     for fastafile in sorted(os.listdir(args.fastadir)):
+        
         targetname = fastafile.replace('.fasta', '')
         print(f"Processing {targetname}")
 
         outdir = args.outdir + '/' + targetname
         makedir_if_not_exists(outdir)
 
-        generate_cmap_cdpred(targetname, args.fastadir + '/' + fastafile, outdir, args.cdpreddir + '/' + targetname)
+        generate_interface_model_size(targetname=targetname, 
+                                      fasta_path=args.fastadir + '/' + fastafile, 
+                                      input_model_dir=args.modeldir + '/' + targetname,
+                                      cdpreddir=args.cdpreddir + '/' + targetname,
+                                      outdir=outdir)
 

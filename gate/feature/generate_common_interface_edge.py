@@ -3,8 +3,12 @@ from biopandas.pdb import PandasPdb
 import numpy as np
 import pandas as pd
 from gate.tool.utils import makedir_if_not_exists
+from gate.tool.protein import read_files_by_prefix_and_ext
 
-def generate_common_interface_edge(indir, outdir, cdpreddir, targetname):
+def generate_common_interface_edge(indir: str, 
+                                   outdir: str, 
+                                   cdpreddir: str, 
+                                   targetname: str):
 
     pdbs = sorted(os.listdir(indir))
 
@@ -15,7 +19,7 @@ def generate_common_interface_edge(indir, outdir, cdpreddir, targetname):
 
         pdb1 = pdbs[i]
 
-        chain_pdb_dir1 = cdpreddir + '/' + pdb1 + '/monomer_pdbs' 
+        chain_pdb_dir1 = cdpreddir + '/models/' + pdb1 + '/monomer_pdbs' 
 
         _cmap_files1 = read_files_by_prefix_and_ext(indir=chain_pdb_dir1, ext='cmap', full_path=False)
 
@@ -31,7 +35,7 @@ def generate_common_interface_edge(indir, outdir, cdpreddir, targetname):
 
             else:
 
-                chain_pdb_dir2 = cdpreddir + '/' + pdb2 + '/monomer_pdbs' 
+                chain_pdb_dir2 = cdpreddir + '/models/' + pdb2 + '/monomer_pdbs' 
 
                 _cmap_files2 = read_files_by_prefix_and_ext(indir=chain_pdb_dir2, ext='cmap', full_path=False)
 
@@ -56,5 +60,8 @@ if __name__ == '__main__':
     for target in os.listdir(args.indir):
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
-        generate_common_interface_edge(args.indir + '/' + target, outdir, args.cdpreddir, target)
+        generate_common_interface_edge(indir=args.indir + '/' + target, 
+                                       outdir=outdir, 
+                                       cdpreddir=args.cdpreddir + '/' + target, 
+                                       targetname=target)
 

@@ -307,12 +307,17 @@ def cal_contact_number_heavy(pdb1, L1, pdb2, L2, distance_threshold=5):
     return (h_contact_map > 0).sum(), h_contact_map, h_dist_map
 
 
-def read_files_by_prefix_and_ext(indir, prefix, ext, full_path=True):
+def read_files_by_prefix_and_ext(indir, prefix='', ext='', full_path=True):
     paths = []
     for name in os.listdir(indir):
-        if name.find(prefix) == 0 and name.split('.')[1] == ext:
-            if full_path:
-                paths += [indir + '/' + name]
-            else:
-                paths += [name]
+        if len(prefix) > 0 and name.find(prefix) != 0:
+            continue
+        
+        if len(ext) > 0 and name.split('.')[-1] != ext:
+            continue
+
+        if full_path:
+            paths += [indir + '/' + name]
+        else:
+            paths += [name]
     return paths

@@ -10,7 +10,10 @@ from subprocess import call
 dproqa_dir = '/home/bml_casp15/tools/DProQA/'
 dproqa_program = 'inference.py'
 
-def generate_dproqa_scores(indir, outdir, targetname, model_csv):
+def generate_dproqa_scores(indir: str, 
+                           outdir: str, 
+                           targetname: str, 
+                           model_csv: str):
 
     model_info_df = pd.read_csv(model_csv)
     model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
@@ -36,10 +39,14 @@ def generate_dproqa_scores(indir, outdir, targetname, model_csv):
             raise Exception(f"Cannot find {resultfile}!")
 
     df = pd.read_csv(resultfile)
-    models = list(df['MODEL'])
-    scores = list(df['PRED_DOCKQ'])
+    models = [] # list(df['MODEL'])
+    scores = [] # list(df['PRED_DOCKQ'])
     scores_norm = []
-    for model, dproqa_score in zip(models, scores):
+    for model, dproqa_score in zip(list(df['MODEL']), list(df['PRED_DOCKQ'])):
+        if model not in model_size_ratio:
+            continue
+        models += [model]
+        scores += [dproqa_score]
         scores_norm += [dproqa_score * float(model_size_ratio[model])]
 
     for pdb in sorted(os.listdir(indir)):
@@ -65,5 +72,8 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
 
-        generate_dproqa_scores(args.indir + '/' + target, outdir, target, interface_dir + '/' + target + '.csv')
+        generate_dproqa_scores(indir=args.indir + '/' + target, 
+                               outdir=outdir, 
+                               targetname=target, 
+                               model_csv=args.interface_dir + '/' + target + '/' + target + '.csv')
 

@@ -39,10 +39,11 @@ def generate_enqa_scores(indir, outdir, targetname):
         resultfile = outdir + '/' + pdb + '.npy'
         if not os.path.exists(resultfile):
             mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
-            cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}"
+            cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}/{pdb}"
             try:
                 print(cmd)
                 os.system(cmd)
+                os.system(f"cp {outdir}/{pdb}/{pdb}.npy {outdir}/{pdb}.npy")
             except Exception as e:
                 print(e)
             
@@ -69,5 +70,6 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
 
-        generate_enqa_scores(args.indir + '/' + target, outdir, target)
+        if not os.path.exists(outdir + '/' + target + '.csv'):
+            generate_enqa_scores(args.indir + '/' + target, outdir, target)
 

@@ -9,7 +9,10 @@ import re, subprocess
 voro_dir = '/home/bml_casp15/tools/ftdmp/'
 voroqa_program = 'ftdmp-qa-all'
 
-def generate_voro_scores(indir, outdir, targetname, model_csv):
+def generate_voro_scores(indir: str, 
+                         outdir: str, 
+                         targetname: str, 
+                         model_csv: str):
 
     model_info_df = pd.read_csv(model_csv)
     model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
@@ -38,23 +41,30 @@ def generate_voro_scores(indir, outdir, targetname, model_csv):
     df = pd.read_csv(resultfile, sep=' ')
     # df['GNN_sum_score'] = (df['GNN_sum_score'] - df['GNN_sum_score'].min()) / (df['GNN_sum_score'].max() - df['GNN_sum_score'].min()) 
 
-    models = list(df['ID'])
-    gnn_scores = list(df['GNN_sum_score'])
-    gnn_pcad_scores = list(df['GNN_pcadscore'])
-    dark_scores = list(df['voromqa_dark'])
+    models = [] # list(df['ID'])
+    gnn_scores = [] # list(df['GNN_sum_score'])
+    gnn_pcad_scores = [] # list(df['GNN_pcadscore'])
+    dark_scores = [] # list(df['voromqa_dark'])
 
     gnn_scores_norm = []
     gnn_pcad_scores_norm = []
     dark_scores_norm = []
 
     for model, gnn_score, gnn_pcad_score, dark_score in zip(list(df['ID']), list(df['GNN_sum_score']), list(df['GNN_pcadscore']), list(df['voromqa_dark'])):
+        model = model.replace('.pdb', '')
+        if model not in model_size_ratio:
+            continue
+        models += [model]
+        gnn_scores += [gnn_score]
+        gnn_pcad_scores += [gnn_pcad_score]
+        dark_scores += [dark_score]
         gnn_scores_norm += [gnn_score * float(model_size_ratio[model])]
         gnn_pcad_scores_norm += [gnn_pcad_score * float(model_size_ratio[model])]
         dark_scores_norm += [dark_score * float(model_size_ratio[model])]
 
     for pdb in sorted(os.listdir(indir)):
-        if pdb + '.pdb' not in models:
-            models += [pdb + '.pdb']
+        if pdb not in models:
+            models += [pdb]
             gnn_scores += [0.0]
             gnn_pcad_scores += [0.0]
             dark_scores += [0.0]
@@ -81,5 +91,8 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
 
-        generate_voro_scores(args.indir + '/' + target, outdir, target, interface_dir + '/' + target + '.csv')
+        generate_voro_scores(indir=args.indir + '/' + target, 
+                             outdir=outdir, 
+                             targetname=target, 
+                             model_csv=args.interface_dir + '/' + target + '/' + target + '.csv')
 
