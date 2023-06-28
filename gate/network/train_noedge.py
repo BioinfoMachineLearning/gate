@@ -11,7 +11,7 @@ from typing import List, Union
 from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from graph_transformer import Gate
+from graph_transformer_noedge_feature import Gate
 import lightning as L
 from torch.utils.data import Dataset
 from argparse import ArgumentParser
@@ -364,7 +364,6 @@ def cli_main():
                                     wandb_logger.experiment.config["random_seed"] = random_seed
                                     wandb_logger.experiment.config["batch_size"] = batch_size
                                     wandb_logger.experiment.config["node_input_dim"] = node_input_dim
-                                    wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
                                     wandb_logger.experiment.config["num_heads"] = num_heads
                                     wandb_logger.experiment.config["num_layer"] = num_layer
                                     wandb_logger.experiment.config["dp_rate"] = dp_rate
@@ -375,7 +374,6 @@ def cli_main():
                                     wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
                                     
                                     model = Gate(node_input_dim=node_input_dim,
-                                                edge_input_dim=edge_input_dim,
                                                 num_heads=num_heads,
                                                 num_layer=num_layer,
                                                 dp_rate=dp_rate,
