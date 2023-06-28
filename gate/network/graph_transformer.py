@@ -67,7 +67,8 @@ class Gate(L.LightningModule):
                  batch_norm,
                  residual,
                  hidden_dim,
-                 mlp_dp_rate):
+                 mlp_dp_rate,
+                 check_pt_dir):
         super().__init__()
 
         self.node_input_dim = node_input_dim
@@ -80,9 +81,11 @@ class Gate(L.LightningModule):
         self.residual = residual
         self.hidden_dim = hidden_dim
         self.mlp_dp_rate = mlp_dp_rate
+        self.check_pt_dir = check_pt_dir
 
-        self.criterion = torchmetrics.MeanSquaredError()
-        
+        # self.criterion = torchmetrics.MeanSquaredError()
+        self.criterion = torch.nn.BCELoss()
+
         self.resnet_embedding = ResNetEmbedding(self.node_input_dim,
                                                 self.edge_input_dim,
                                                 self.hidden_dim)
@@ -116,8 +119,8 @@ class Gate(L.LightningModule):
 
     def configure_optimizers(self):
         # self.hparams available because we called self.save_hyperparameters()
-        # optimizer = torch.optim.Adam(self.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
-        optimizer = torch.optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
+        # optimizer = torch.optim.SGD(self.parameters(), lr=0.0001, momentum=0.9)
         # optimizer = NoamOpt(self.hid_dim, 1, 2000, torch.optim.Adam(self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
         scheduler = ReduceLROnPlateau(optimizer, mode='min')
         metric_to_track = 'valid_loss'
@@ -128,8 +131,9 @@ class Gate(L.LightningModule):
         }
     
     def configure_callbacks(self):
-        early_stop = L.pytorch.callbacks.EarlyStopping(monitor="valid_loss", mode="min", patience=20)
-        return [early_stop]
+        checkpoint_callback = L.pytorch.callbacks.ModelCheckpoint(monitor="valid_loss", dirpath=self.check_pt_dir, filename='{valid_loss:.5f}_{epoch}')
+        # early_stop = L.pytorch.callbacks.EarlyStopping(monitor="valid_loss", mode="min", patience=20)
+        return [checkpoint_callback] #, early_stop]
 
     def training_step(self, batch, batch_idx):
         data, target = batch
@@ -146,3 +150,11 @@ class Gate(L.LightningModule):
         loss = self.criterion(out, target)
         self.log('valid_loss', loss, on_epoch=True)
         return loss
+
+    def test_step(self, batch, batch_idx):
+        data, target = batch
+        out = self(data, data.ndata['f'], data.edata['f'])
+        # print(out)
+        # print(target)
+        loss = self.criterion(out, target)
+        self.log('test_loss', loss, on_epoch=True)

@@ -18,6 +18,7 @@ from argparse import ArgumentParser
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
 from lightning.pytorch.loggers.wandb import WandbLogger
+from scipy.stats.stats import pearsonr
 
 def update_node_feature(graph: dgl.DGLGraph, new_node_features: List) -> None:
     """Node feature update helper"""
@@ -70,48 +71,82 @@ def build_model_graph(targetname: str,
     # a. alphafold global plddt score
     alphafold_scores_file = score_dir + '/alphafold/' + targetname + '.csv' 
     alphafold_scores_df = pd.read_csv(alphafold_scores_file)
-    alphafold_scores_dict = {k: v for k, v in zip(list(alphafold_scores_df['model']), list(alphafold_scores_df['plddt']))}
+    alphafold_scores_dict = {k: v for k, v in zip(list(alphafold_scores_df['model']), list(alphafold_scores_df['plddt_norm']))}
     alphafold_scores = [alphafold_scores_dict[model] for model in models]
     
     alphafold_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_scores).reshape(-1, 1))).float()
 
-    # b. average pairwise similarity score
-    average_sim_scores = [np.mean(np.array(subgraph_df[model])) for model in models]
+    # b1. average pairwise similarity score in graph
+    # b2. average pairwise similarity score for all models
+    average_sim_scores_in_subgraph = [np.mean(np.array(subgraph_df[model])) for model in models]
+    average_sim_score_in_subgraph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_scores_in_subgraph).reshape(-1, 1))).float()
 
-    average_sim_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_scores).reshape(-1, 1))).float()
+    fullgraph_file = score_dir + '/pairwise_sym/' + targetname + '_sym.csv'
+    full_graph_df = pd.read_csv(fullgraph_file, index_col=[0])
+    average_sim_scores_in_full_graph = [np.mean(np.array(full_graph_df[model])) for model in models]
+    average_sim_score_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_scores_in_full_graph).reshape(-1, 1))).float()
 
     # c. voro scores: gnn, gnn_pcadscore, voromqa_dark
     voro_scores_file = score_dir + '/voro_scores/' + targetname + '.csv'
     voro_scores_df = pd.read_csv(voro_scores_file)
-    voro_gnn_dict = {k: v for k, v in zip(list(voro_scores_df['model']), list(voro_scores_df['GNN_sum_score']))}
-    voro_gnn_pcadscore_dict = {k: v for k, v in zip(list(voro_scores_df['model']), list(voro_scores_df['GNN_pcadscore']))}
-    voro_dark_dict = {k: v for k, v in zip(list(voro_scores_df['model']), list(voro_scores_df['voromqa_dark']))}
+    voro_gnn_dict = {k: v for k, v in zip(list(voro_scores_df['model']), list(voro_scores_df['GNN_sum_score_norm']))}
+    voro_gnn_pcadscore_dict = {k: v for k, v in zip(list(voro_scores_df['model']), list(voro_scores_df['GNN_pcadscore_norm']))}
+    voro_dark_dict = {k: v for k, v in zip(list(voro_scores_df['model']), list(voro_scores_df['voromqa_dark_norm']))}
 
-    voro_gnn_scores = [voro_gnn_dict[model + '.pdb'] for model in models]
-    voro_gnn_pcadscores = [voro_gnn_pcadscore_dict[model + '.pdb'] for model in models]
-    voro_dark_scores = [voro_dark_dict[model + '.pdb'] for model in models]
+    voro_gnn_scores = [voro_gnn_dict[model] for model in models]
+    voro_gnn_pcadscores = [voro_gnn_pcadscore_dict[model] for model in models]
+    voro_dark_scores = [voro_dark_dict[model] for model in models]
 
     voro_gnn_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(voro_gnn_scores).reshape(-1, 1))).float()
     voro_gnn_pcadscore_feature = torch.tensor(scaler.fit_transform(torch.tensor(voro_gnn_pcadscores).reshape(-1, 1))).float()
     voro_dark_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(voro_dark_scores).reshape(-1, 1))).float()
 
-    # To be added: enqa scores, dproqa scores, contact scores by cdpred
+    # d. dproqa scores
+    dproqa_score_file = score_dir + '/dproqa/' + targetname + '.csv'
+    dproqa_scores_df = pd.read_csv(dproqa_score_file)
+    dproqa_scores_dict = {k: v for k, v in zip(list(dproqa_scores_df['model']), list(dproqa_scores_df['DockQ_norm']))}
 
+    dproqa_scores = [dproqa_scores_dict[model] for model in models]
+    dproqa_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(dproqa_scores).reshape(-1, 1))).float()
+
+    # e. contact scores by cdpred
+    contact_score_file = score_dir + '/contact/' + targetname + '.csv'
+    contact_scores_df = pd.read_csv(contact_score_file)
+    icps_scores_dict = {k: v for k, v in zip(list(contact_scores_df['model']), list(contact_scores_df['icps']))}
+    recall_scores_dict = {k: v for k, v in zip(list(contact_scores_df['model']), list(contact_scores_df['recall']))}
+
+    icps_scores = [icps_scores_dict[model] for model in models]
+    recall_scores = [recall_scores_dict[model] for model in models]
+
+    icps_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(icps_scores).reshape(-1, 1))).float()
+    recall_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(recall_scores).reshape(-1, 1))).float()
+
+    # To be added: enqa scores
 
     # edge features
     # a. global fold similarity between two models
+    # b. number of common interfaces
     subgraph_array = np.array(subgraph_df)
     edge_sim = []
+
+    common_interface_csv_file = score_dir + '/edge_features/' + targetname + '.csv'
+    common_interface_array = np.array(pd.read_csv(common_interface_csv_file, index_col=[0]))
+    edge_common_interface = []
+
     for src, dst in zip(src_nodes, dst_nodes):
        edge_sim += [subgraph_array[src, dst]]
+       edge_common_interface += [common_interface_array[src, dst]]
 
     edge_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_sim).reshape(-1, 1))).float()
+    edge_common_interface_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_common_interface).reshape(-1, 1))).float()
 
     # 6. add feature to graph
-    update_node_feature(graph, [alphafold_score_feature, average_sim_score_feature,
-                                voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature])
+    update_node_feature(graph, [alphafold_score_feature, 
+                                average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
+                                voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
+                                dproqa_score_feature, icps_score_feature, recall_score_feature])
 
-    update_edge_feature(graph, [edge_sim_feature])
+    update_edge_feature(graph, [edge_sim_feature, edge_common_interface_feature])
 
     dgl.save_graphs(filename=os.path.join(out, f'{filename}.dgl'), g_list=graph)
     # print(f'{filename}\nSUCCESS')
@@ -152,7 +187,7 @@ class DGLData(Dataset):
     def __init__(self, dgl_folder: str, label_folder: str):
         self.data_list = os.listdir(dgl_folder)
         self.data_path_list = [os.path.join(dgl_folder, i) for i in self.data_list]
-        self.label_folder=label_folder
+        self.label_folder = label_folder
 
         self.data = []
         self.label = []
@@ -194,11 +229,11 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
         for target in targets:
             print(f'Generating DGL files for {target}')
             Parallel(n_jobs=10)(delayed(graph_wrapper)(targetname=target, 
-                                                    subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
-                                                    filename=target + '_' + subgraph_file.replace('.csv', ''), 
-                                                    score_dir=scoredir, 
-                                                    dgl_folder=dgl_folder) 
-                                                    for subgraph_file in os.listdir(datadir + '/' + target))
+                                                       subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
+                                                       filename=target + '_' + subgraph_file.replace('.csv', ''), 
+                                                       score_dir=scoredir, 
+                                                       dgl_folder=dgl_folder) 
+                                                       for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/dgl.done")
                     
     # generating labels
@@ -209,11 +244,11 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
         for target in targets:
             print(f'Generating label files for {target}')
             Parallel(n_jobs=10)(delayed(label_wrapper)(targetname=target, 
-                                                    subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
-                                                    filename=target + '_' + subgraph_file.replace('.csv', ''), 
-                                                    score_dir=scoredir, 
-                                                    label_folder=label_folder) 
-                                                    for subgraph_file in os.listdir(datadir + '/' + target))
+                                                       subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
+                                                       filename=target + '_' + subgraph_file.replace('.csv', ''), 
+                                                       score_dir=scoredir, 
+                                                       label_folder=label_folder) 
+                                                       for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/label.done")
 
     return dgl_folder, label_folder        
@@ -221,7 +256,7 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
 
 def cli_main():
 
-    random_seed = 1111
+    random_seed = 3407
 
     L.seed_everything(random_seed)
 
@@ -233,93 +268,187 @@ def cli_main():
 
     args.gpus = 1
 
-    all_targets = sorted(os.listdir(args.datadir))
+    for sampled_data in os.listdir(args.datadir):
 
-    targets_train, targets_test = train_test_split(all_targets, test_size=0.1, random_state=42)
+        sampled_datadir = args.datadir + '/' + sampled_data
 
-    kf = KFold(n_splits=10, shuffle=True, random_state=42)
+        outdir = args.outdir + '/' + sampled_data
 
-    for i, (train_index, val_index) in enumerate(kf.split(targets_train)):
-        
-        print(f"Fold {i}:")
-        targets_train_in_fold = [targets_train[i] for i in train_index]
-        targets_val_in_fold = [targets_train[i] for i in val_index]
+        all_targets = sorted(os.listdir(sampled_datadir))
 
-        folddir = f"{args.outdir}/fold{i}"
-        os.makedirs(folddir, exist_ok=True)
+        kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
-        traindir = folddir + '/train'
-        os.makedirs(traindir, exist_ok=True)
-        train_dgl_folder, train_label_folder = generate_dgl_and_labels(savedir=traindir, targets=targets_train_in_fold, datadir=args.datadir, scoredir=args.scoredir)
+        for i, (train_val_index, test_index) in enumerate(kf.split(all_targets)):
 
-        valdir = folddir + '/val'
-        os.makedirs(valdir, exist_ok=True)
-        val_dgl_folder, val_label_folder = generate_dgl_and_labels(savedir=valdir, targets=targets_val_in_fold, datadir=args.datadir, scoredir=args.scoredir)
+            print(f"Fold {i}:")
 
-        batch_size = 32
+            targets_test_in_fold = [all_targets[i] for i in test_index]
+            print(f"Test targets:")
+            print(targets_test_in_fold)
 
-        train_data = DGLData(dgl_folder=train_dgl_folder, label_folder=train_label_folder)
-        train_loader = DataLoader(train_data,
-                                  batch_size=batch_size,
-                                  num_workers=16,
-                                  pin_memory=True,
-                                  collate_fn=collate,
-                                  shuffle=True)
-        
-        val_data = DGLData(dgl_folder=val_dgl_folder, label_folder=val_label_folder)
-        val_loader = DataLoader(val_data,
-                                batch_size=batch_size,
-                                num_workers=16,
-                                pin_memory=True,
-                                collate_fn=collate,
-                                shuffle=False)
+            targets_train_val_in_fold = [all_targets[i] for i in train_val_index]
 
-        node_input_dim = 5
-        edge_input_dim = 1
-        num_heads = 4
-        num_layer = 4
-        dp_rate = 0.3
-        layer_norm = False
-        batch_norm = True
-        residual = True
-        hidden_dim = 32
-        mlp_dp_rate = 0.3
+            targets_train_in_fold, targets_val_in_fold = train_test_split(targets_train_val_in_fold, test_size=0.1, random_state=42)
 
-        # initialise the wandb logger and name your wandb project
-        wandb_logger = WandbLogger(project='gate_v1')
+            print(f"Train targets:")
+            print(targets_train_in_fold)
 
-        # add your batch size to the wandb config
-        wandb_logger.experiment.config["random_seed"] = random_seed
-        wandb_logger.experiment.config["batch_size"] = batch_size
-        wandb_logger.experiment.config["node_input_dim"] = node_input_dim
-        wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
-        wandb_logger.experiment.config["num_heads"] = num_heads
-        wandb_logger.experiment.config["num_layer"] = num_layer
-        wandb_logger.experiment.config["dp_rate"] = dp_rate
-        wandb_logger.experiment.config["layer_norm"] = layer_norm
-        wandb_logger.experiment.config["batch_norm"] = batch_norm
-        wandb_logger.experiment.config["residual"] = residual
-        wandb_logger.experiment.config["hidden_dim"] = hidden_dim
-        wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
+            print(f"Validation targets:")
+            print(targets_val_in_fold)
+    
+            folddir = f"{outdir}/fold{i}"
+            os.makedirs(folddir, exist_ok=True)
 
-        model = Gate(node_input_dim=node_input_dim,
-                    edge_input_dim=edge_input_dim,
-                    num_heads=num_heads,
-                    num_layer=num_layer,
-                    dp_rate=dp_rate,
-                    layer_norm=layer_norm,
-                    batch_norm=batch_norm,
-                    residual=residual,
-                    hidden_dim=hidden_dim,
-                    mlp_dp_rate=mlp_dp_rate)
+            traindir = folddir + '/train'
+            os.makedirs(traindir, exist_ok=True)
+            train_dgl_folder, train_label_folder = generate_dgl_and_labels(savedir=traindir, targets=targets_train_in_fold, datadir=sampled_datadir, scoredir=args.scoredir)
 
-        trainer = L.Trainer(accelerator='gpu',max_epochs=1000, logger=wandb_logger)
+            valdir = folddir + '/val'
+            os.makedirs(valdir, exist_ok=True)
+            val_dgl_folder, val_label_folder = generate_dgl_and_labels(savedir=valdir, targets=targets_val_in_fold, datadir=sampled_datadir, scoredir=args.scoredir)
 
-        trainer.fit(model, train_loader, val_loader)
+            testdir = folddir + '/test'
+            os.makedirs(testdir, exist_ok=True)
+            test_dgl_folder, test_label_folder = generate_dgl_and_labels(savedir=testdir, targets=targets_test_in_fold, datadir=sampled_datadir, scoredir=args.scoredir)
 
-        os.exit(1)
+            if os.path.exists(folddir + '/corr_loss.csv'):
+                continue
 
+            batch_size = 64
 
+            train_data = DGLData(dgl_folder=train_dgl_folder, label_folder=train_label_folder)
+            train_loader = DataLoader(train_data,
+                                    batch_size=batch_size,
+                                    num_workers=16,
+                                    pin_memory=True,
+                                    collate_fn=collate,
+                                    shuffle=True)
+            
+            val_data = DGLData(dgl_folder=val_dgl_folder, label_folder=val_label_folder)
+            val_loader = DataLoader(val_data,
+                                    batch_size=batch_size,
+                                    num_workers=16,
+                                    pin_memory=True,
+                                    collate_fn=collate,
+                                    shuffle=False)
+
+            test_data = DGLData(dgl_folder=test_dgl_folder, label_folder=test_label_folder)
+            test_loader = DataLoader(test_data,
+                                    batch_size=1,
+                                    num_workers=16,
+                                    pin_memory=True,
+                                    collate_fn=collate,
+                                    shuffle=False)
+
+            node_input_dim = 9
+            edge_input_dim = 2
+
+            for num_heads in [4, 6, 8]:
+                for num_layer in [2, 3, 4, 5]:
+                    for dp_rate in [0.3, 0.5, 0.7]:
+                        for layer_norm in [True, False]:
+                            for hidden_dim in [16, 32]:
+                                for mlp_dp_rate in [0.3, 0.5, 0.7]:
+                                    # initialise the wandb logger and name your wandb project
+                                    os.makedirs(sampled_data, exist_ok=True)
+                                    wandb_logger = WandbLogger(project=sampled_data, save_dir=sampled_data)
+
+                                    # add your batch size to the wandb config
+                                    wandb_logger.experiment.config["random_seed"] = random_seed
+                                    wandb_logger.experiment.config["batch_size"] = batch_size
+                                    wandb_logger.experiment.config["node_input_dim"] = node_input_dim
+                                    wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
+                                    wandb_logger.experiment.config["num_heads"] = num_heads
+                                    wandb_logger.experiment.config["num_layer"] = num_layer
+                                    wandb_logger.experiment.config["dp_rate"] = dp_rate
+                                    wandb_logger.experiment.config["layer_norm"] = layer_norm
+                                    wandb_logger.experiment.config["batch_norm"] = not layer_norm
+                                    wandb_logger.experiment.config["residual"] = True
+                                    wandb_logger.experiment.config["hidden_dim"] = hidden_dim
+                                    wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
+                                    
+                                    model = Gate(node_input_dim=node_input_dim,
+                                                edge_input_dim=edge_input_dim,
+                                                num_heads=num_heads,
+                                                num_layer=num_layer,
+                                                dp_rate=dp_rate,
+                                                layer_norm=layer_norm,
+                                                batch_norm=not layer_norm,
+                                                residual=True,
+                                                hidden_dim=hidden_dim,
+                                                mlp_dp_rate=mlp_dp_rate,
+                                                check_pt_dir=folddir + '/ckpt')
+
+                                    trainer = L.Trainer(accelerator='gpu',max_epochs=150, logger=wandb_logger)
+
+                                    trainer.fit(model, train_loader, val_loader)
+                                    
+                                    # device = torch.device('cuda')  # set cuda device
+
+                                    # ckpt_files = sorted(os.listdir(folddir + '/ckpt'))
+                                    
+                                    # model = model.load_from_checkpoint(folddir + '/ckpt/' + ckpt_files[0])
+
+                                    # model = model.to(device)
+
+                                    # model.eval()
+
+                                    # pred_subgraph_scores = {}
+                                    # for idx, batch_graphs in enumerate(test_loader):
+                                    #     subgraph = batch_graphs[0]
+                                    #     batch_x = subgraph.ndata['f'].to(torch.float)
+                                    #     batch_e = subgraph.edata['f'].to(torch.float)
+                                    #     subgraph = subgraph.to(device)
+                                    #     batch_x = batch_x.to(device)
+                                    #     batch_e = batch_e.to(device)
+                                    #     batch_scores = model.forward(subgraph, batch_x, batch_e)
+
+                                    #     targetname = test_data.data_list[idx].split('_')[0]
+                                    #     subgraph_name = test_data.data_list[idx].split('_', maxsplit=1)[1]
+
+                                    #     subgraph_df = pd.read_csv(f"{sampled_datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
+                                    #     pred_scores = batch_scores.cpu().data.numpy().squeeze(1)
+                                    #     for i, modelname in enumerate(subgraph_df.columns):
+                                    #         if modelname not in pred_subgraph_scores:
+                                    #             pred_subgraph_scores[modelname] = []
+                                    #         pred_subgraph_scores[modelname] += [pred_scores[i]]
+
+                                    # # print(pred_subgraph_scores)
+                                    # fw = open(folddir + '/corr_loss.csv', 'w')
+
+                                    # for target in targets_test_in_fold:
+                                    #     models_for_target = [modelname for modelname in pred_subgraph_scores if modelname.split('TS')[0] == target.replace('o','')]    
+                                    #     # print(models_for_target)
+                                    #     ensemble_scores = []
+                                    #     for modelname in models_for_target:
+                                    #         mean_score = np.mean(np.array(pred_subgraph_scores[modelname]))
+                                    #         ensemble_scores += [mean_score]
+                                    #     pd.DataFrame({'model': models_for_target, 'score': ensemble_scores}).to_csv(folddir + '/' + target + '.csv')
+                                    
+                                    #     native_score_file = args.scoredir + '/label/' + target + '.csv'
+                                    #     native_df = pd.read_csv(native_score_file)
+
+                                    #     native_scores_dict = {}
+                                    #     for i in range(len(native_df)):
+                                    #         native_scores_dict[native_df.loc[i, 'model']] = float(native_df.loc[i,'tmscore'])
+
+                                    #     corr = pearsonr(np.array(ensemble_scores), np.array(native_df['tmscore']))[0]
+                                        
+                                    #     pred_df = pd.read_csv(folddir + '/' + target + '.csv')
+                                    #     pred_df = pred_df.sort_values(by=['score'], ascending=False)
+                                    #     pred_df.reset_index(inplace=True)
+
+                                    #     top1_model = pred_df.loc[0, 'model']
+
+                                    #     ranking_loss = float(np.max(np.array(native_df['tmscore']))) - float(native_scores_dict[top1_model])
+
+                                    #     print(f"Target: {target}, corr={corr}, loss={ranking_loss}")
+
+                                    #     fw.write(f'{target}\t{corr}\t{ranking_loss}')
+                                    
+                                    # fw.close()
+
+            os.exit(1)
     
 
 if __name__ == '__main__':
