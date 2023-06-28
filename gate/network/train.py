@@ -18,6 +18,7 @@ from argparse import ArgumentParser
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
 from lightning.pytorch.loggers.wandb import WandbLogger
+import wandb
 from scipy.stats.stats import pearsonr
 
 def update_node_feature(graph: dgl.DGLGraph, new_node_features: List) -> None:
@@ -350,6 +351,8 @@ def cli_main():
                             for hidden_dim in [16, 32]:
                                 for mlp_dp_rate in [0.3, 0.5, 0.7]:
                                     # initialise the wandb logger and name your wandb project
+                                    wandb.finish()
+
                                     os.makedirs(sampled_data, exist_ok=True)
                                     wandb_logger = WandbLogger(project=sampled_data, save_dir=sampled_data)
 
@@ -379,7 +382,9 @@ def cli_main():
                                                 mlp_dp_rate=mlp_dp_rate,
                                                 check_pt_dir=folddir + '/ckpt')
 
-                                    trainer = L.Trainer(accelerator='gpu',max_epochs=150, logger=wandb_logger)
+                                    trainer = L.Trainer(accelerator='gpu',max_epochs=10, logger=wandb_logger)
+
+                                    wandb_logger.watch(model)
 
                                     trainer.fit(model, train_loader, val_loader)
                                     
