@@ -382,7 +382,7 @@ def cli_main():
                                                 mlp_dp_rate=mlp_dp_rate,
                                                 check_pt_dir=folddir + '/ckpt')
 
-                                    trainer = L.Trainer(accelerator='gpu',max_epochs=10, logger=wandb_logger)
+                                    trainer = L.Trainer(accelerator='gpu',max_epochs=100, logger=wandb_logger)
 
                                     wandb_logger.watch(model)
 
