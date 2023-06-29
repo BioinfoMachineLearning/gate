@@ -1,7 +1,7 @@
 import os, sys, argparse, time
 import numpy as np
 import pandas as pd
-from tool.util import makedir_if_not_exists
+from gate.tool.utils import makedir_if_not_exists
 from sklearn.cluster import KMeans
 import random, copy
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
                                 #'9': [10],
                                 #{'10': [10]}
                                 
-    sample_numbers_per_target = [100, 200]
+    sample_numbers_per_target = [1000]
 
     for cluster_num in kmeans_cluster_nums:
         sample_numbers = sample_numbers_in_cluster[str(cluster_num)]
