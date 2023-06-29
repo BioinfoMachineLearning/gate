@@ -357,8 +357,8 @@ def cli_main():
                                     # initialise the wandb logger and name your wandb project
                                     wandb.finish()
 
-                                    os.makedirs(sampled_data, exist_ok=True)
-                                    wandb_logger = WandbLogger(project=sampled_data, save_dir=sampled_data)
+                                    os.makedirs(sampled_data + '_noedge', exist_ok=True)
+                                    wandb_logger = WandbLogger(project=sampled_data + '_noedge', save_dir=sampled_data + '_noedge')
 
                                     # add your batch size to the wandb config
                                     wandb_logger.experiment.config["random_seed"] = random_seed

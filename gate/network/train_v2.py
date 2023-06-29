@@ -11,7 +11,7 @@ from typing import List, Union
 from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from graph_transformer import Gate
+from graph_transformer_v2 import Gate
 import lightning as L
 from torch.utils.data import Dataset
 from argparse import ArgumentParser
@@ -208,8 +208,21 @@ def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir:
 
     tmscores = np.array(tmscores).reshape(-1, 1)
 
-    np.save(label_folder + '/' + filename + '.npy', tmscores)
+    np.save(label_folder + '/' + filename + '_node.npy', tmscores)
 
+    signs = []
+    for i in range(len(models)):
+        for j in range(len(models)):
+            if i == j:
+                continue
+
+            if float(tmscore_dict[models[i]]) < float(tmscore_dict[models[j]]):
+                signs += [0]
+            else:
+                signs += [1]
+
+    np.save(label_folder + '/' + filename + '_edge.npy', signs)
+            
 
 class DGLData(Dataset):
     """Data loader"""
@@ -219,34 +232,42 @@ class DGLData(Dataset):
         self.label_folder = label_folder
 
         self.data = []
-        self.label = []
+        self.node_label = []
+        self.edge_label = []
         self._prepare()
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx], self.label[idx]
+        return self.data[idx], self.node_label[idx], self.edge_label[idx]
 
     def _prepare(self):
         for i in range(len(self.data_list)):
             g, tmp = dgl.data.utils.load_graphs(self.data_path_list[i])
             self.data.append(g[0])
-            self.label.append(np.load(self.label_folder + '/' + self.data_list[i].replace('.dgl', '.npy')))
+            self.node_label.append(np.load(self.label_folder + '/' + self.data_list[i].replace('.dgl', '_node.npy')))
+            self.edge_label.append(np.load(self.label_folder + '/' + self.data_list[i].replace('.dgl', '_edge.npy')))
 
 
 def collate(samples):
     """Customer collate function"""
-    graphs, labels = zip(*samples)
+    graphs, node_labels, edge_labels = zip(*samples)
     batched_graphs = dgl.batch(graphs)
-    batch_labels = None
-    for label in labels:
-        if batch_labels is None:
-            batch_labels = copy.deepcopy(label)
+    batch_node_labels, batch_edge_labels = None, None
+    for node_label in node_labels:
+        if batch_node_labels is None:
+            batch_node_labels = copy.deepcopy(node_label)
         else:
-            batch_labels = np.concatenate((batch_labels, label), axis=None)
+            batch_node_labels = np.concatenate((batch_node_labels, node_label), axis=None)
+    
+    for edge_label in edge_labels:
+        if batch_edge_labels is None:
+            batch_edge_labels = copy.deepcopy(edge_label)
+        else:
+            batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
 
-    return batched_graphs, torch.tensor(batch_labels).float().reshape(-1, 1)
+    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), torch.tensor(batch_edge_labels).float().reshape(-1, 1)
 
 
 def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
@@ -372,11 +393,11 @@ def cli_main():
             node_input_dim = 17
             edge_input_dim = 3
 
-            for num_heads in [8]:
-                for num_layer in [2, 3]:
+            for num_heads in [4, 8]:
+                for num_layer in [2, 4, 6]:
                     for dp_rate in [0.3, 0.5]:
                         for layer_norm in [True, False]:
-                            for hidden_dim in [16]:
+                            for hidden_dim in [16, 32]:
                                 for mlp_dp_rate in [0.3, 0.5]:
                                     
                                     if os.path.exists(f'{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}.done'):
@@ -385,8 +406,8 @@ def cli_main():
                                     # initialise the wandb logger and name your wandb project
                                     wandb.finish()
 
-                                    os.makedirs(sampled_data + '_pos', exist_ok=True)
-                                    wandb_logger = WandbLogger(project=sampled_data + '_pos', save_dir=sampled_data + '_pos')
+                                    os.makedirs(sampled_data + '_v2', exist_ok=True)
+                                    wandb_logger = WandbLogger(project=sampled_data + '_v2', save_dir=sampled_data + '_v2')
 
                                     # add your batch size to the wandb config
                                     wandb_logger.experiment.config["random_seed"] = random_seed
