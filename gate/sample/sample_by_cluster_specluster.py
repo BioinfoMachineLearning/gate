@@ -70,14 +70,14 @@ if __name__ == '__main__':
 
     spec_cluster_cluster_nums = range(5, 11)
 
-    sample_numbers_in_cluster = {'5': [15, 20],
-                                '6': [10, 15],
-                                '7': [10, 15],
-                                '8': [10],
-                                '9': [10],
-                                '10': [10]}
+    sample_numbers_in_cluster = {'5': [20]}
+                                #'6': [10, 15],
+                                #'7': [10, 15],
+                                #'8': [10],
+                                #'9': [10],
+                                #{'10': [10]}
                                 
-    sample_numbers_per_target = [200, 300]
+    sample_numbers_per_target = [1000]
 
     for cluster_num in spec_cluster_cluster_nums:
         sample_numbers = sample_numbers_in_cluster[str(cluster_num)]
