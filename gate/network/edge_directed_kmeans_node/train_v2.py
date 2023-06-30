@@ -320,6 +320,9 @@ def cli_main():
     args.gpus = 1
 
     for sampled_data in os.listdir(args.datadir):
+        
+        if sampled_data != 'k5_n10_t1000':
+            continue
 
         sampled_datadir = args.datadir + '/' + sampled_data
 

@@ -298,6 +298,9 @@ def cli_main():
     args.gpus = 1
 
     for sampled_data in os.listdir(args.datadir):
+        
+        if sampled_data != 'k5_n10_t1000':
+            continue
 
         sampled_datadir = args.datadir + '/' + sampled_data
 
@@ -378,11 +381,11 @@ def cli_main():
             for num_heads in [4]:
                 for num_layer in [2, 3, 4]:
                     for dp_rate in [0.3, 0.5]:
-                        for layer_norm in [True, False]:
-                            for hidden_dim in [16, 32]:
+                        for layer_norm in [True]:
+                            for hidden_dim in [16]:
                                 for mlp_dp_rate in [0.3, 0.5]:
 
-                                    if os.path.exists(f'{workdir}/{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}_{node_weight}.done'):
+                                    if os.path.exists(f'{workdir}/{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}.done'):
                                             continue
 
                                     # initialise the wandb logger and name your wandb project
