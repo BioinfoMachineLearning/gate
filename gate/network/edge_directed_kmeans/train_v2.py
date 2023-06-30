@@ -108,7 +108,7 @@ def build_model_graph(targetname: str,
     average_sim_scores_in_subgraph = [np.mean(np.array(subgraph_df[model])) for model in models]
     average_sim_score_in_subgraph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_scores_in_subgraph).reshape(-1, 1))).float()
 
-    fullgraph_file = score_dir + '/pairwise_sym/' + targetname + '_sym.csv'
+    fullgraph_file = score_dir + '/pairwise/' + targetname + '.csv'
     full_graph_df = pd.read_csv(fullgraph_file, index_col=[0])
     average_sim_scores_in_full_graph = [np.mean(np.array(full_graph_df[model])) for model in models]
     average_sim_score_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_scores_in_full_graph).reshape(-1, 1))).float()
@@ -163,7 +163,8 @@ def build_model_graph(targetname: str,
     edge_common_interface = []
 
     for src, dst in zip(src_nodes, dst_nodes):
-       edge_sim += [subgraph_array[src, dst]]
+       # edge_sim += [subgraph_array[src, dst]]
+       edge_sim += [subgraph_array[dst, src]] # non-symmetric matrix, the similarity score should be noramlized by the target model
        edge_common_interface += [common_interface_array[src, dst]]
 
     edge_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_sim).reshape(-1, 1))).float()
@@ -393,22 +394,24 @@ def cli_main():
             node_input_dim = 17
             edge_input_dim = 3
 
+            workdir = sampled_data + '_directed'
+            os.makedirs(workdir, exist_ok=True)
+
             for num_heads in [4]:
-                for num_layer in [2, 3, 4]:
+                for num_layer in [3, 4]:
                     for dp_rate in [0.3, 0.5]:
-                        for layer_norm in [True, False]:
-                            for hidden_dim in [16, 32]:
+                        for layer_norm in [True]:
+                            for hidden_dim in [16]:
                                 for mlp_dp_rate in [0.3, 0.5]:
-                                    for node_weight in [0.9]:
+                                    for node_weight in [0.8]:
                                     
-                                        if os.path.exists(f'{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}_{node_weight}.done'):
+                                        if os.path.exists(f'{workdir}/{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}_{node_weight}.done'):
                                             continue
 
                                         # initialise the wandb logger and name your wandb project
                                         wandb.finish()
 
-                                        os.makedirs(sampled_data + '_v2d', exist_ok=True)
-                                        wandb_logger = WandbLogger(project=sampled_data + '_v2d', save_dir=sampled_data + '_v2d')
+                                        wandb_logger = WandbLogger(project=workdir, save_dir=workdir)
 
                                         # add your batch size to the wandb config
                                         wandb_logger.experiment.config["random_seed"] = random_seed
@@ -445,7 +448,7 @@ def cli_main():
 
                                         trainer.fit(model, train_loader, val_loader)
                                         
-                                        os.system(f'touch {num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}_{node_weight}.done')
+                                        os.system(f'touch {workdir}/{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}_{node_weight}.done')
                                         # device = torch.device('cuda')  # set cuda device
 
                                         # ckpt_files = sorted(os.listdir(folddir + '/ckpt'))

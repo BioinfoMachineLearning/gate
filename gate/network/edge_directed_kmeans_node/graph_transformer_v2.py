@@ -109,7 +109,7 @@ class Gate(L.LightningModule):
 
         self.node_MLP_layer = MLP(input_dim=self.hidden_dim, output_dim=1, dp_rate=self.mlp_dp_rate)
 
-        self.edge_MLP_layer = MLP(input_dim=self.hidden_dim, output_dim=1, dp_rate=self.mlp_dp_rate)
+        # self.edge_MLP_layer = MLP(input_dim=self.hidden_dim, output_dim=1, dp_rate=self.mlp_dp_rate)
 
         self.save_hyperparameters()
 
@@ -125,9 +125,9 @@ class Gate(L.LightningModule):
 
         y1 = self.node_MLP_layer(h)
 
-        y2 = self.edge_MLP_layer(e)
+        # y2 = self.edge_MLP_layer(e)
 
-        return y1, y2
+        return y1
 
     def configure_optimizers(self):
         # self.hparams available because we called self.save_hyperparameters()
@@ -144,19 +144,19 @@ class Gate(L.LightningModule):
     
     def configure_callbacks(self):
         # checkpoint_callback = L.pytorch.callbacks.ModelCheckpoint(monitor="valid_loss", dirpath=self.check_pt_dir, filename='{valid_loss:.5f}_{epoch}')
-        early_stop = L.pytorch.callbacks.EarlyStopping(monitor="valid_loss", mode="min", patience=30)
+        early_stop = L.pytorch.callbacks.EarlyStopping(monitor="valid_loss", mode="min", patience=15)
         return [early_stop]
 
     def training_step(self, batch, batch_idx):
         data, node_label, edge_label = batch
         node_out, edge_out = self(data, data.ndata['f'], data.edata['f'])
         node_loss = self.criterion_node(node_out, node_label)
-        edge_loss = self.criterion_edge(edge_out, edge_label)
-        loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
+        # edge_loss = self.criterion_edge(edge_out, edge_label)
+        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
 
-        self.log('train_loss', loss, on_epoch=True, batch_size=self.batch_size)
-        self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        self.log('train_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        self.log('train_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('train_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -164,12 +164,12 @@ class Gate(L.LightningModule):
 
         node_out, edge_out = self(data, data.ndata['f'], data.edata['f'])
         node_loss = self.criterion_node(node_out, node_label)
-        edge_loss = self.criterion_edge(edge_out, edge_label)
-        loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
+        # edge_loss = self.criterion_edge(edge_out, edge_label)
+        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
         
-        self.log('valid_loss', loss, on_epoch=True, batch_size=self.batch_size)
-        self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        self.log('valid_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
 
 
     # def test_step(self, batch, batch_idx):
