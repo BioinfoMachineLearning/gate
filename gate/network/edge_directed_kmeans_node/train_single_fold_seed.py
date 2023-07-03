@@ -227,9 +227,9 @@ def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir:
 
 class DGLData(Dataset):
     """Data loader"""
-    def __init__(self, dgl_folder: str, label_folder: str):
-        self.data_list = os.listdir(dgl_folder)
-        self.data_path_list = [os.path.join(dgl_folder, i) for i in self.data_list]
+    def __init__(self, dgl_folder: str, label_folder: str, targets):
+        self.target_list = targets
+        self.dgl_folder = dgl_folder
         self.label_folder = label_folder
 
         self.data = []
@@ -244,11 +244,15 @@ class DGLData(Dataset):
         return self.data[idx], self.node_label[idx], self.edge_label[idx]
 
     def _prepare(self):
-        for i in range(len(self.data_list)):
-            g, tmp = dgl.data.utils.load_graphs(self.data_path_list[i])
-            self.data.append(g[0])
-            self.node_label.append(np.load(self.label_folder + '/' + self.data_list[i].replace('.dgl', '_node.npy')))
-            self.edge_label.append(np.load(self.label_folder + '/' + self.data_list[i].replace('.dgl', '_edge.npy')))
+        for target in self.target_list:
+            target_dgl_folder = self.dgl_folder + '/' + target
+            target_label_folder = self.label_folder + '/' + target
+
+            for dgl_file in os.listdir(target_dgl_folder):
+                g, tmp = dgl.data.utils.load_graphs(target_dgl_folder + '/' + dgl_file)
+                self.data.append(g[0])
+                self.node_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')))
+                self.edge_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_edge.npy')))
 
 
 def collate(samples):
@@ -312,141 +316,123 @@ def cli_main():
     parser.add_argument('--scoredir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--fold', type=int, required=True)
+    parser.add_argument('--project', type=str, required=True)
 
     args = parser.parse_args()
 
     args.gpus = 1
 
-    for random_seed in np.random.randint(low=0, high=3000, size=200):
+    for random_seed in np.random.randint(low=0, high=10000, size=200):
 
         L.seed_everything(random_seed, workers=True)
 
-        all_targets = sorted(os.listdir(args.datadir))
+        dgldir = f"{args.outdir}/processed_data/dgl"
+        labeldir = f"{args.outdir}/processed_data/label"
+        folddir = f"{args.outdir}/fold{args.fold}"
 
-        kf = KFold(n_splits=10, shuffle=True, random_state=42)
+        lines = open(folddir + '/targets.list').readlines()
 
-        for i, (train_val_index, test_index) in enumerate(kf.split(all_targets)):
+        targets_train_in_fold = lines[0].split()
+        targets_val_in_fold = lines[1].split()
+        targets_test_in_fold = lines[2].split()
 
-            if i != args.fold:
-                continue
+        print(f"Fold {args.fold}:")
 
-            print(f"Fold {i}:")
+        print(f"Train targets:")
+        print(targets_train_in_fold)
 
-            targets_test_in_fold = [all_targets[i] for i in test_index]
-            print(f"Test targets:")
-            print(targets_test_in_fold)
+        print(f"Validation targets:")
+        print(targets_val_in_fold)
 
-            targets_train_val_in_fold = [all_targets[i] for i in train_val_index]
+        print(f"Test targets:")
+        print(targets_test_in_fold)
 
-            targets_train_in_fold, targets_val_in_fold = train_test_split(targets_train_val_in_fold, test_size=0.1, random_state=42)
+        if os.path.exists(folddir + '/corr_loss.csv'):
+            continue
 
-            print(f"Train targets:")
-            print(targets_train_in_fold)
+        batch_size = 256
 
-            print(f"Validation targets:")
-            print(targets_val_in_fold)
-    
-            folddir = f"{args.outdir}/fold{i}"
-            os.makedirs(folddir, exist_ok=True)
+        train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
+        train_loader = DataLoader(train_data,
+                                batch_size=batch_size,
+                                num_workers=16,
+                                pin_memory=True,
+                                collate_fn=collate,
+                                shuffle=True)
+        
+        val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
+        val_loader = DataLoader(val_data,
+                                batch_size=batch_size,
+                                num_workers=16,
+                                pin_memory=True,
+                                collate_fn=collate,
+                                shuffle=False)
 
-            traindir = folddir + '/train'
-            os.makedirs(traindir, exist_ok=True)
-            train_dgl_folder, train_label_folder = generate_dgl_and_labels(savedir=traindir, targets=targets_train_in_fold, datadir=args.datadir, scoredir=args.scoredir)
+        test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+        test_loader = DataLoader(test_data,
+                                batch_size=1,
+                                num_workers=16,
+                                pin_memory=True,
+                                collate_fn=collate,
+                                shuffle=False)
 
-            valdir = folddir + '/val'
-            os.makedirs(valdir, exist_ok=True)
-            val_dgl_folder, val_label_folder = generate_dgl_and_labels(savedir=valdir, targets=targets_val_in_fold, datadir=args.datadir, scoredir=args.scoredir)
+        node_input_dim = 17
+        edge_input_dim = 3
 
-            testdir = folddir + '/test'
-            os.makedirs(testdir, exist_ok=True)
-            test_dgl_folder, test_label_folder = generate_dgl_and_labels(savedir=testdir, targets=targets_test_in_fold, datadir=args.datadir, scoredir=args.scoredir)
+        workdir = f'directed_node_seed_{args.project}_fold{args.fold}'
 
-            if os.path.exists(folddir + '/corr_loss.csv'):
-                continue
+        os.makedirs(workdir, exist_ok=True)
 
-            batch_size = 64
+        node_input_dim = 17
+        edge_input_dim = 3
+        num_heads = 4
+        num_layer = 4
+        dp_rate = 0.3
+        hidden_dim = 16
+        mlp_dp_rate = 0.3
+        layer_norm = True
 
-            train_data = DGLData(dgl_folder=train_dgl_folder, label_folder=train_label_folder)
-            train_loader = DataLoader(train_data,
-                                    batch_size=batch_size,
-                                    num_workers=16,
-                                    pin_memory=True,
-                                    collate_fn=collate,
-                                    shuffle=True)
-            
-            val_data = DGLData(dgl_folder=val_dgl_folder, label_folder=val_label_folder)
-            val_loader = DataLoader(val_data,
-                                    batch_size=batch_size,
-                                    num_workers=16,
-                                    pin_memory=True,
-                                    collate_fn=collate,
-                                    shuffle=False)
+        # initialise the wandb logger and name your wandb project
+        wandb.finish()
 
-            test_data = DGLData(dgl_folder=test_dgl_folder, label_folder=test_label_folder)
-            test_loader = DataLoader(test_data,
-                                    batch_size=1,
-                                    num_workers=16,
-                                    pin_memory=True,
-                                    collate_fn=collate,
-                                    shuffle=False)
+        wandb_logger = WandbLogger(project=workdir, save_dir=workdir)
 
-            node_input_dim = 17
-            edge_input_dim = 3
+        # add your batch size to the wandb config
+        wandb_logger.experiment.config["random_seed"] = random_seed
+        wandb_logger.experiment.config["batch_size"] = batch_size
+        wandb_logger.experiment.config["node_input_dim"] = node_input_dim
+        wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
+        wandb_logger.experiment.config["num_heads"] = num_heads
+        wandb_logger.experiment.config["num_layer"] = num_layer
+        wandb_logger.experiment.config["dp_rate"] = dp_rate
+        wandb_logger.experiment.config["layer_norm"] = layer_norm
+        wandb_logger.experiment.config["batch_norm"] = not layer_norm
+        wandb_logger.experiment.config["residual"] = True
+        wandb_logger.experiment.config["hidden_dim"] = hidden_dim
+        wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
+        wandb_logger.experiment.config["fold"] = args.fold
+        
+        ckpt_dir = folddir + '/ckpt/' + str(random_seed)
+        os.makedirs(ckpt_dir, exist_ok=True)
 
-            workdir = f'directed_node_seed_fold{i}'
+        model = Gate(node_input_dim=node_input_dim,
+                    edge_input_dim=edge_input_dim,
+                    num_heads=num_heads,
+                    num_layer=num_layer,
+                    dp_rate=dp_rate,
+                    layer_norm=layer_norm,
+                    batch_norm=not layer_norm,
+                    residual=True,
+                    hidden_dim=hidden_dim,
+                    mlp_dp_rate=mlp_dp_rate,
+                    check_pt_dir=ckpt_dir,
+                    batch_size=batch_size)
 
-            os.makedirs(workdir, exist_ok=True)
+        trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger)
 
-            node_input_dim = 17
-            edge_input_dim = 3
-            num_heads = 4
-            num_layer = 4
-            dp_rate = 0.3
-            hidden_dim = 16
-            mlp_dp_rate = 0.3
-            layer_norm = True
+        wandb_logger.watch(model)
 
-            # initialise the wandb logger and name your wandb project
-            wandb.finish()
-
-            wandb_logger = WandbLogger(project=workdir, save_dir=workdir)
-
-            # add your batch size to the wandb config
-            wandb_logger.experiment.config["random_seed"] = random_seed
-            wandb_logger.experiment.config["batch_size"] = batch_size
-            wandb_logger.experiment.config["node_input_dim"] = node_input_dim
-            wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
-            wandb_logger.experiment.config["num_heads"] = num_heads
-            wandb_logger.experiment.config["num_layer"] = num_layer
-            wandb_logger.experiment.config["dp_rate"] = dp_rate
-            wandb_logger.experiment.config["layer_norm"] = layer_norm
-            wandb_logger.experiment.config["batch_norm"] = not layer_norm
-            wandb_logger.experiment.config["residual"] = True
-            wandb_logger.experiment.config["hidden_dim"] = hidden_dim
-            wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
-            wandb_logger.experiment.config["fold"] = i
-            
-            ckpt_dir = folddir + '/ckpt/' + str(random_seed)
-            os.makedirs(ckpt_dir, exist_ok=True)
-
-            model = Gate(node_input_dim=node_input_dim,
-                        edge_input_dim=edge_input_dim,
-                        num_heads=num_heads,
-                        num_layer=num_layer,
-                        dp_rate=dp_rate,
-                        layer_norm=layer_norm,
-                        batch_norm=not layer_norm,
-                        residual=True,
-                        hidden_dim=hidden_dim,
-                        mlp_dp_rate=mlp_dp_rate,
-                        check_pt_dir=ckpt_dir,
-                        batch_size=batch_size)
-
-            trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger)
-
-            wandb_logger.watch(model)
-
-            trainer.fit(model, train_loader, val_loader)
+        trainer.fit(model, train_loader, val_loader)
     
 
 if __name__ == '__main__':

@@ -223,53 +223,6 @@ def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir:
                 signs += [1]
 
     np.save(label_folder + '/' + filename + '_edge.npy', signs)
-            
-
-class DGLData(Dataset):
-    """Data loader"""
-    def __init__(self, dgl_folder: str, label_folder: str):
-        self.data_list = os.listdir(dgl_folder)
-        self.data_path_list = [os.path.join(dgl_folder, i) for i in self.data_list]
-        self.label_folder = label_folder
-
-        self.data = []
-        self.node_label = []
-        self.edge_label = []
-        self._prepare()
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx], self.node_label[idx], self.edge_label[idx]
-
-    def _prepare(self):
-        for i in range(len(self.data_list)):
-            g, tmp = dgl.data.utils.load_graphs(self.data_path_list[i])
-            self.data.append(g[0])
-            self.node_label.append(np.load(self.label_folder + '/' + self.data_list[i].replace('.dgl', '_node.npy')))
-            self.edge_label.append(np.load(self.label_folder + '/' + self.data_list[i].replace('.dgl', '_edge.npy')))
-
-
-def collate(samples):
-    """Customer collate function"""
-    graphs, node_labels, edge_labels = zip(*samples)
-    batched_graphs = dgl.batch(graphs)
-    batch_node_labels, batch_edge_labels = None, None
-    for node_label in node_labels:
-        if batch_node_labels is None:
-            batch_node_labels = copy.deepcopy(node_label)
-        else:
-            batch_node_labels = np.concatenate((batch_node_labels, node_label), axis=None)
-    
-    for edge_label in edge_labels:
-        if batch_edge_labels is None:
-            batch_edge_labels = copy.deepcopy(edge_label)
-        else:
-            batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
-
-    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), torch.tensor(batch_edge_labels).float().reshape(-1, 1)
-
 
 def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
     # generating graph
@@ -279,11 +232,12 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
     if not os.path.exists(savedir + '/dgl.done'):
         for target in targets:
             print(f'Generating DGL files for {target}')
+            os.makedirs(dgl_folder + '/' + target, exist_ok=True)
             Parallel(n_jobs=-1)(delayed(graph_wrapper)(targetname=target, 
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
-                                                       dgl_folder=dgl_folder) 
+                                                       dgl_folder=dgl_folder + '/' + target) 
                                                        for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/dgl.done")
                     
@@ -294,11 +248,12 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
     if not os.path.exists(savedir + '/label.done'):
         for target in targets:
             print(f'Generating label files for {target}')
+            os.makedirs(label_folder + '/' + target, exist_ok=True)
             Parallel(n_jobs=10)(delayed(label_wrapper)(targetname=target, 
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
-                                                       label_folder=label_folder) 
+                                                       label_folder=label_folder + '/' + target) 
                                                        for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/label.done")
 
@@ -329,16 +284,19 @@ def cli_main():
         outdir = args.outdir + '/' + sampled_data
 
         all_targets = sorted(os.listdir(sampled_datadir))
+        
+        savedir = outdir + '/processed_data'
+
+        dgl_folder, label_folder = generate_dgl_and_labels(savedir=savedir, targets=all_targets, datadir=sampled_datadir, scoredir=args.scoredir)
 
         kf = KFold(n_splits=10, shuffle=True, random_state=42)
 
         for i, (train_val_index, test_index) in enumerate(kf.split(all_targets)):
+            
+            folddir = f"{outdir}/fold{i}"
+            os.makedirs(folddir, exist_ok=True)
 
             print(f"Fold {i}:")
-
-            targets_test_in_fold = [all_targets[i] for i in test_index]
-            print(f"Test targets:")
-            print(targets_test_in_fold)
 
             targets_train_val_in_fold = [all_targets[i] for i in train_val_index]
 
@@ -349,177 +307,15 @@ def cli_main():
 
             print(f"Validation targets:")
             print(targets_val_in_fold)
-    
-            folddir = f"{outdir}/fold{i}"
-            os.makedirs(folddir, exist_ok=True)
 
-            traindir = folddir + '/train'
-            os.makedirs(traindir, exist_ok=True)
-            train_dgl_folder, train_label_folder = generate_dgl_and_labels(savedir=traindir, targets=targets_train_in_fold, datadir=sampled_datadir, scoredir=args.scoredir)
+            targets_test_in_fold = [all_targets[i] for i in test_index]
+            print(f"Test targets:")
+            print(targets_test_in_fold)
 
-            valdir = folddir + '/val'
-            os.makedirs(valdir, exist_ok=True)
-            val_dgl_folder, val_label_folder = generate_dgl_and_labels(savedir=valdir, targets=targets_val_in_fold, datadir=sampled_datadir, scoredir=args.scoredir)
-
-            testdir = folddir + '/test'
-            os.makedirs(testdir, exist_ok=True)
-            test_dgl_folder, test_label_folder = generate_dgl_and_labels(savedir=testdir, targets=targets_test_in_fold, datadir=sampled_datadir, scoredir=args.scoredir)
-
-            continue
-
-            if os.path.exists(folddir + '/corr_loss.csv'):
-                continue
-
-            batch_size = 64
-
-            train_data = DGLData(dgl_folder=train_dgl_folder, label_folder=train_label_folder)
-            train_loader = DataLoader(train_data,
-                                    batch_size=batch_size,
-                                    num_workers=16,
-                                    pin_memory=True,
-                                    collate_fn=collate,
-                                    shuffle=True)
-            
-            val_data = DGLData(dgl_folder=val_dgl_folder, label_folder=val_label_folder)
-            val_loader = DataLoader(val_data,
-                                    batch_size=batch_size,
-                                    num_workers=16,
-                                    pin_memory=True,
-                                    collate_fn=collate,
-                                    shuffle=False)
-
-            test_data = DGLData(dgl_folder=test_dgl_folder, label_folder=test_label_folder)
-            test_loader = DataLoader(test_data,
-                                    batch_size=1,
-                                    num_workers=16,
-                                    pin_memory=True,
-                                    collate_fn=collate,
-                                    shuffle=False)
-
-            node_input_dim = 17
-            edge_input_dim = 3
-
-            workdir = sampled_data + '_directed_node3'
-            os.makedirs(workdir, exist_ok=True)
-
-            for num_heads in [4]:
-                for num_layer in [4]:
-                    for dp_rate in [0.3]:
-                        for layer_norm in [True]:
-                            for hidden_dim in [16]:
-                                for mlp_dp_rate in [0.3]:
-                                    for node_weight in [0.8]:
-                                                                               
-                                        # if os.path.exists(f'{workdir}/{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}_{node_weight}.done'):
-                                        #     continue
-
-                                        # initialise the wandb logger and name your wandb project
-                                        wandb.finish()
-
-                                        wandb_logger = WandbLogger(project=workdir, save_dir=workdir)
-
-                                        # add your batch size to the wandb config
-                                        wandb_logger.experiment.config["random_seed"] = random_seed
-                                        wandb_logger.experiment.config["batch_size"] = batch_size
-                                        wandb_logger.experiment.config["node_input_dim"] = node_input_dim
-                                        wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
-                                        wandb_logger.experiment.config["num_heads"] = num_heads
-                                        wandb_logger.experiment.config["num_layer"] = num_layer
-                                        wandb_logger.experiment.config["dp_rate"] = dp_rate
-                                        wandb_logger.experiment.config["layer_norm"] = layer_norm
-                                        wandb_logger.experiment.config["batch_norm"] = not layer_norm
-                                        wandb_logger.experiment.config["residual"] = True
-                                        wandb_logger.experiment.config["hidden_dim"] = hidden_dim
-                                        wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
-                                        # wandb_logger.experiment.config["node_weight"] = node_weight
-                                        
-                                        model = Gate(node_input_dim=node_input_dim,
-                                                    edge_input_dim=edge_input_dim,
-                                                    num_heads=num_heads,
-                                                    num_layer=num_layer,
-                                                    dp_rate=dp_rate,
-                                                    layer_norm=layer_norm,
-                                                    batch_norm=not layer_norm,
-                                                    residual=True,
-                                                    hidden_dim=hidden_dim,
-                                                    mlp_dp_rate=mlp_dp_rate,
-                                                    check_pt_dir=folddir + '/ckpt',
-                                                    batch_size=batch_size)
-                                                    # node_weight=node_weight)
-
-                                        trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger, deterministic=True)
-
-                                        wandb_logger.watch(model)
-
-                                        trainer.fit(model, train_loader, val_loader)
-                                        
-                                        # os.system(f'touch {workdir}/{num_heads}_{num_layer}_{dp_rate}_{layer_norm}_{hidden_dim}_{mlp_dp_rate}_{node_weight}.done')
-                                        # device = torch.device('cuda')  # set cuda device
-
-                                        # ckpt_files = sorted(os.listdir(folddir + '/ckpt'))
-                                        
-                                        # model = model.load_from_checkpoint(folddir + '/ckpt/' + ckpt_files[0])
-
-                                        # model = model.to(device)
-
-                                        # model.eval()
-
-                                        # pred_subgraph_scores = {}
-                                        # for idx, batch_graphs in enumerate(test_loader):
-                                        #     subgraph = batch_graphs[0]
-                                        #     batch_x = subgraph.ndata['f'].to(torch.float)
-                                        #     batch_e = subgraph.edata['f'].to(torch.float)
-                                        #     subgraph = subgraph.to(device)
-                                        #     batch_x = batch_x.to(device)
-                                        #     batch_e = batch_e.to(device)
-                                        #     batch_scores = model.forward(subgraph, batch_x, batch_e)
-
-                                        #     targetname = test_data.data_list[idx].split('_')[0]
-                                        #     subgraph_name = test_data.data_list[idx].split('_', maxsplit=1)[1]
-
-                                        #     subgraph_df = pd.read_csv(f"{sampled_datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
-                                        #     pred_scores = batch_scores.cpu().data.numpy().squeeze(1)
-                                        #     for i, modelname in enumerate(subgraph_df.columns):
-                                        #         if modelname not in pred_subgraph_scores:
-                                        #             pred_subgraph_scores[modelname] = []
-                                        #         pred_subgraph_scores[modelname] += [pred_scores[i]]
-
-                                        # # print(pred_subgraph_scores)
-                                        # fw = open(folddir + '/corr_loss.csv', 'w')
-
-                                        # for target in targets_test_in_fold:
-                                        #     models_for_target = [modelname for modelname in pred_subgraph_scores if modelname.split('TS')[0] == target.replace('o','')]    
-                                        #     # print(models_for_target)
-                                        #     ensemble_scores = []
-                                        #     for modelname in models_for_target:
-                                        #         mean_score = np.mean(np.array(pred_subgraph_scores[modelname]))
-                                        #         ensemble_scores += [mean_score]
-                                        #     pd.DataFrame({'model': models_for_target, 'score': ensemble_scores}).to_csv(folddir + '/' + target + '.csv')
-                                        
-                                        #     native_score_file = args.scoredir + '/label/' + target + '.csv'
-                                        #     native_df = pd.read_csv(native_score_file)
-
-                                        #     native_scores_dict = {}
-                                        #     for i in range(len(native_df)):
-                                        #         native_scores_dict[native_df.loc[i, 'model']] = float(native_df.loc[i,'tmscore'])
-
-                                        #     corr = pearsonr(np.array(ensemble_scores), np.array(native_df['tmscore']))[0]
-                                            
-                                        #     pred_df = pd.read_csv(folddir + '/' + target + '.csv')
-                                        #     pred_df = pred_df.sort_values(by=['score'], ascending=False)
-                                        #     pred_df.reset_index(inplace=True)
-
-                                        #     top1_model = pred_df.loc[0, 'model']
-
-                                        #     ranking_loss = float(np.max(np.array(native_df['tmscore']))) - float(native_scores_dict[top1_model])
-
-                                        #     print(f"Target: {target}, corr={corr}, loss={ranking_loss}")
-
-                                        #     fw.write(f'{target}\t{corr}\t{ranking_loss}')
-                                        
-                                        # fw.close()
-
-            os.exit(1)
+            with open(folddir + '/targets.list', 'w') as fw:
+                fw.write('\t'.join(targets_train_in_fold) + '\n')
+                fw.write('\t'.join(targets_val_in_fold) + '\n')
+                fw.write('\t'.join(targets_test_in_fold) + '\n')
     
 
 if __name__ == '__main__':

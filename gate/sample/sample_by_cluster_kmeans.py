@@ -55,14 +55,14 @@ if __name__ == '__main__':
 
     kmeans_cluster_nums = range(5, 11)
 
-    sample_numbers_in_cluster = {'5': [20]}
+    sample_numbers_in_cluster = {'5': [10]}
                                 #'6': [10, 15],
                                 #'7': [10, 15],
                                 #'8': [10],
                                 #'9': [10],
                                 #{'10': [10]}
                                 
-    sample_numbers_per_target = [1000]
+    sample_numbers_per_target = [2000]
 
     for cluster_num in kmeans_cluster_nums:
         sample_numbers = sample_numbers_in_cluster[str(cluster_num)]

@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     spec_cluster_cluster_nums = range(5, 11)
 
-    sample_numbers_in_cluster = {'5': [20]}
+    sample_numbers_in_cluster = {'5': [10]}
                                 #'6': [10, 15],
                                 #'7': [10, 15],
                                 #'8': [10],
