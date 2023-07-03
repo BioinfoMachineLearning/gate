@@ -350,6 +350,12 @@ def cli_main():
         if os.path.exists(folddir + '/corr_loss.csv'):
             continue
 
+        ckpt_dir = folddir + '/ckpt/' + str(random_seed)
+        os.makedirs(ckpt_dir, exist_ok=True)
+
+        if os.path.exists(ckpt_dir + 'train.done'):
+            continue
+
         batch_size = 256
 
         train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
@@ -412,9 +418,6 @@ def cli_main():
         wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
         wandb_logger.experiment.config["fold"] = args.fold
         
-        ckpt_dir = folddir + '/ckpt/' + str(random_seed)
-        os.makedirs(ckpt_dir, exist_ok=True)
-
         model = Gate(node_input_dim=node_input_dim,
                     edge_input_dim=edge_input_dim,
                     num_heads=num_heads,
@@ -433,6 +436,8 @@ def cli_main():
         wandb_logger.watch(model)
 
         trainer.fit(model, train_loader, val_loader)
+
+        os.system(f'touch {ckpt_dir}/train.done')
     
 
 if __name__ == '__main__':
