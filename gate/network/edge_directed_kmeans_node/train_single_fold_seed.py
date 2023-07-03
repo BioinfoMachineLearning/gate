@@ -317,7 +317,7 @@ def cli_main():
 
     args.gpus = 1
 
-    for random_seed in range(3400, 3420):
+    for random_seed in np.random.randint(low=0, high=3000, size=200):
 
         L.seed_everything(random_seed, workers=True)
 
@@ -426,6 +426,9 @@ def cli_main():
             wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
             wandb_logger.experiment.config["fold"] = i
             
+            ckpt_dir = folddir + '/ckpt/' + str(random_seed)
+            os.makedirs(ckpt_dir, exist_ok=True)
+
             model = Gate(node_input_dim=node_input_dim,
                         edge_input_dim=edge_input_dim,
                         num_heads=num_heads,
@@ -436,7 +439,7 @@ def cli_main():
                         residual=True,
                         hidden_dim=hidden_dim,
                         mlp_dp_rate=mlp_dp_rate,
-                        check_pt_dir=folddir + '/ckpt',
+                        check_pt_dir=ckpt_dir,
                         batch_size=batch_size)
 
             trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger)
