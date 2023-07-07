@@ -230,7 +230,7 @@ def get_recall_score(cdpred_cmap_file, model_cmap_file, prob_threshold=0.2):
     return (prob_map > 0).sum() / (cdpred_cmap.shape[0] * cdpred_cmap.shape[1])
 
 
-def generate_icps_scores(targetname, fasta_path, outdir, pairwise_score_csv, input_model_dir):
+def generate_icps_scores(targetname, fasta_path, outdir, pairwise_score_csv, input_model_dir, run_cdpred):
 
     # read sequences from fasta file
     sequences, descriptions = parse_fasta(open(fasta_path).read())
@@ -333,6 +333,10 @@ def generate_icps_scores(targetname, fasta_path, outdir, pairwise_score_csv, inp
             jackhmmer_runner = Jackhmmer(binary_path=jackhmmer_binary, database_path=jackhmmer_database)
             msa_process_list.append([jackhmmer_runner, monomer_fasta, stofile])
 
+    if not run_cdpred:
+        print("11111111111111111111111111111")
+        return msa_process_list, []
+
     # pool = Pool(processes=15)
     # results = pool.map(run_msa_tool, msa_process_list)
     # pool.close()
@@ -406,9 +410,11 @@ if __name__ == '__main__':
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--modeldir', type=str, required=True)
     parser.add_argument('--pairwise_dir', type=str, required=True)
+    parser.add_argument('--run_cdpred',choices=('True','False'))
 
     args = parser.parse_args()
 
+    run_cdpred = args.run_cdpred == 'True'
     msa_process_list = []
     run_cdpred_list = []
     for fastafile in sorted(os.listdir(args.fastadir)):
@@ -416,7 +422,7 @@ if __name__ == '__main__':
         print(f"Processing {targetname}")
 
         pairwise_score_csv = args.pairwise_dir + '/' + targetname + '.csv'
-        if not os.path.exists(pairwise_score_csv):
+        if not os.path.exists(pairwise_score_csv) and run_cdpred:
             print(f"Cannot find the pairwise score file: {pairwise_score_csv}")
             continue
 
@@ -427,7 +433,7 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + targetname
         makedir_if_not_exists(outdir)
 
-        target_msa_list, target_cdpred_list = generate_icps_scores(targetname, args.fastadir + '/' + fastafile, outdir, pairwise_score_csv, args.modeldir + '/' + targetname)
+        target_msa_list, target_cdpred_list = generate_icps_scores(targetname, args.fastadir + '/' + fastafile, outdir, pairwise_score_csv, args.modeldir + '/' + targetname, run_cdpred)
 
         msa_process_list += target_msa_list
         run_cdpred_list += target_cdpred_list
@@ -437,8 +443,10 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    pool = Pool(processes=10)
-    results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
-    pool.close()
-    pool.join()
+    if len(run_cdpred_list) > 0:
+        print(run_cdpred_list)
+        pool = Pool(processes=10)
+        results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
+        pool.close()
+        pool.join()
 

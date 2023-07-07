@@ -68,8 +68,7 @@ def build_model_graph(targetname: str,
                       subgraph_file: str,
                       filename: str,
                       score_dir: str,
-                      out: str,
-                      sim_threshold: float) -> None:
+                      out: str) -> None:
     """Build KNN graph and assign node and edge features. node feature: N * 35, Edge feature: E * 6"""
     if not os.path.exists(subgraph_file):
         raise FileNotFoundError(f'Cannot not find subgraph: {subgraph_file} ')
@@ -80,6 +79,18 @@ def build_model_graph(targetname: str,
     subgraph_df = pd.read_csv(subgraph_file, index_col=[0])
 
     nodes_num = len(subgraph_df)
+
+    src_nodes, dst_nodes = [], []
+    for i in range(nodes_num):
+        for j in range(nodes_num):
+            if i == j:
+                continue
+            src_nodes += [i]
+            dst_nodes += [j]
+
+    graph = dgl.graph((torch.tensor(src_nodes), torch.tensor(dst_nodes)))
+
+    lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
 
     models = subgraph_df.columns
 
@@ -142,36 +153,29 @@ def build_model_graph(targetname: str,
     # edge features
     # a. global fold similarity between two models
     # b. number of common interfaces
+    edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
+
     subgraph_array = np.array(subgraph_df)
+    edge_sim = []
+
     common_interface_csv_file = score_dir + '/edge_features/' + targetname + '.csv'
     common_interface_array = np.array(pd.read_csv(common_interface_csv_file, index_col=[0]))
-    
-    src_nodes, dst_nodes = [], []
-    edge_sim, edge_common_interface = [], []
-    for src in range(nodes_num):
-        for dst in range(nodes_num):
-            if src == dst:
-                continue
-            if subgraph_array[dst, src] >= sim_threshold:
-                src_nodes += [src]
-                dst_nodes += [dst]
+    edge_common_interface = []
 
-                # edge_sim += [subgraph_array[dst, src]] # non-symmetric matrix, the similarity score should be noramlized by the target model
-                edge_sim += [subgraph_array[src, dst]] # should be normalized by the source model? e.g., source model is larger
-                edge_common_interface += [common_interface_array[src, dst]]
+    for src, dst in zip(src_nodes, dst_nodes):
+       # edge_sim += [subgraph_array[src, dst]]
+       edge_sim += [subgraph_array[dst, src]] # non-symmetric matrix, the similarity score should be noramlized by the target model
+       edge_common_interface += [common_interface_array[src, dst]]
 
     edge_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_sim).reshape(-1, 1))).float()
     edge_common_interface_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_common_interface).reshape(-1, 1))).float()
 
     # 6. add feature to graph
-    graph = dgl.graph((torch.tensor(src_nodes), torch.tensor(dst_nodes)), num_nodes=nodes_num)
-    lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
     update_node_feature(graph, [alphafold_score_feature, 
                                 average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
                                 voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
                                 dproqa_score_feature, icps_score_feature, recall_score_feature, lap_enc_feature])
 
-    edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
     update_edge_feature(graph, [edge_sin_pos, edge_sim_feature, edge_common_interface_feature])
 
     dgl.save_graphs(filename=os.path.join(out, f'{filename}.dgl'), g_list=graph)
@@ -179,13 +183,12 @@ def build_model_graph(targetname: str,
     return None
 
 
-def graph_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, dgl_folder: str, sim_threshold: float):
+def graph_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, dgl_folder: str):
     build_model_graph(targetname=targetname,
                       subgraph_file=subgraph_file,
                       filename=filename,
                       score_dir=score_dir,
-                      out=dgl_folder,
-                      sim_threshold=sim_threshold)
+                      out=dgl_folder)
 
 
 def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, label_folder: str):
@@ -206,23 +209,29 @@ def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir:
 
     tmscores = np.array(tmscores).reshape(-1, 1)
 
-    np.save(label_folder + '/' + filename + '_node.npy', tmscores)
+    qsscore_dict = {k: v for k, v in zip(list(label_df['model']), list(label_df['qscore']))}
 
-    # signs = []
-    # for i in range(len(models)):
-    #     for j in range(len(models)):
-    #         if i == j:
-    #             continue
+    qsscores = [qsscore_dict[model] for model in models]
 
-    #         if float(tmscore_dict[models[i]]) < float(tmscore_dict[models[j]]):
-    #             signs += [0]
-    #         else:
-    #             signs += [1]
+    qsscores = np.array(qsscores).reshape(-1, 1)
 
-    # np.save(label_folder + '/' + filename + '_edge.npy', signs)
+    np.save(label_folder + '/' + filename + '_node.npy', np.concatenate((tmscores, qsscores), axis=0))
 
+    signs = []
+    for i in range(len(models)):
+        for j in range(len(models)):
+            if i == j:
+                continue
 
-def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold):
+            if float(tmscore_dict[models[i]]) < float(tmscore_dict[models[j]]):
+                signs += [0]
+            else:
+                signs += [1]
+
+    np.save(label_folder + '/' + filename + '_edge.npy', signs)
+    
+
+def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
     # generating graph
     dgl_folder = savedir + '/dgl'
     os.makedirs(dgl_folder, exist_ok=True)
@@ -235,8 +244,7 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold):
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
-                                                       dgl_folder=dgl_folder + '/' + target,
-                                                       sim_threshold=sim_threshold) 
+                                                       dgl_folder=dgl_folder + '/' + target) 
                                                        for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/dgl.done")
                     
@@ -269,7 +277,6 @@ def cli_main():
     parser.add_argument('--datadir', type=str, required=True)
     parser.add_argument('--scoredir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--sim_threshold', type=float, default=0.0, required=False)
     args = parser.parse_args()
 
     args.gpus = 1
@@ -287,7 +294,7 @@ def cli_main():
         
         savedir = outdir + '/processed_data'
 
-        dgl_folder, label_folder = generate_dgl_and_labels(savedir=savedir, targets=all_targets, datadir=sampled_datadir, scoredir=args.scoredir, sim_threshold=args.sim_threshold)
+        dgl_folder, label_folder = generate_dgl_and_labels(savedir=savedir, targets=all_targets, datadir=sampled_datadir, scoredir=args.scoredir)
 
         kf = KFold(n_splits=10, shuffle=True, random_state=42)
 

@@ -68,8 +68,7 @@ def build_model_graph(targetname: str,
                       subgraph_file: str,
                       filename: str,
                       score_dir: str,
-                      out: str,
-                      sim_threshold: float) -> None:
+                      out: str) -> None:
     """Build KNN graph and assign node and edge features. node feature: N * 35, Edge feature: E * 6"""
     if not os.path.exists(subgraph_file):
         raise FileNotFoundError(f'Cannot not find subgraph: {subgraph_file} ')
@@ -80,6 +79,18 @@ def build_model_graph(targetname: str,
     subgraph_df = pd.read_csv(subgraph_file, index_col=[0])
 
     nodes_num = len(subgraph_df)
+
+    src_nodes, dst_nodes = [], []
+    for i in range(nodes_num):
+        for j in range(nodes_num):
+            if i == j:
+                continue
+            src_nodes += [i]
+            dst_nodes += [j]
+
+    graph = dgl.graph((torch.tensor(src_nodes), torch.tensor(dst_nodes)))
+
+    lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
 
     models = subgraph_df.columns
 
@@ -142,36 +153,29 @@ def build_model_graph(targetname: str,
     # edge features
     # a. global fold similarity between two models
     # b. number of common interfaces
+    edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
+
     subgraph_array = np.array(subgraph_df)
+    edge_sim = []
+
     common_interface_csv_file = score_dir + '/edge_features/' + targetname + '.csv'
     common_interface_array = np.array(pd.read_csv(common_interface_csv_file, index_col=[0]))
-    
-    src_nodes, dst_nodes = [], []
-    edge_sim, edge_common_interface = [], []
-    for src in range(nodes_num):
-        for dst in range(nodes_num):
-            if src == dst:
-                continue
-            if subgraph_array[dst, src] >= sim_threshold:
-                src_nodes += [src]
-                dst_nodes += [dst]
+    edge_common_interface = []
 
-                # edge_sim += [subgraph_array[dst, src]] # non-symmetric matrix, the similarity score should be noramlized by the target model
-                edge_sim += [subgraph_array[src, dst]] # should be normalized by the source model? e.g., source model is larger
-                edge_common_interface += [common_interface_array[src, dst]]
+    for src, dst in zip(src_nodes, dst_nodes):
+       # edge_sim += [subgraph_array[src, dst]]
+       edge_sim += [subgraph_array[dst, src]] # non-symmetric matrix, the similarity score should be noramlized by the target model
+       edge_common_interface += [common_interface_array[src, dst]]
 
     edge_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_sim).reshape(-1, 1))).float()
     edge_common_interface_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_common_interface).reshape(-1, 1))).float()
 
     # 6. add feature to graph
-    graph = dgl.graph((torch.tensor(src_nodes), torch.tensor(dst_nodes)), num_nodes=nodes_num)
-    lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
     update_node_feature(graph, [alphafold_score_feature, 
                                 average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
                                 voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
                                 dproqa_score_feature, icps_score_feature, recall_score_feature, lap_enc_feature])
 
-    edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
     update_edge_feature(graph, [edge_sin_pos, edge_sim_feature, edge_common_interface_feature])
 
     dgl.save_graphs(filename=os.path.join(out, f'{filename}.dgl'), g_list=graph)
@@ -179,13 +183,12 @@ def build_model_graph(targetname: str,
     return None
 
 
-def graph_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, dgl_folder: str, sim_threshold: float):
+def graph_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, dgl_folder: str):
     build_model_graph(targetname=targetname,
                       subgraph_file=subgraph_file,
                       filename=filename,
                       score_dir=score_dir,
-                      out=dgl_folder,
-                      sim_threshold=sim_threshold)
+                      out=dgl_folder)
 
 
 def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, label_folder: str):
@@ -206,23 +209,79 @@ def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir:
 
     tmscores = np.array(tmscores).reshape(-1, 1)
 
-    np.save(label_folder + '/' + filename + '_node.npy', tmscores)
+    qsscore_dict = {k: v for k, v in zip(list(label_df['model']), list(label_df['qscore']))}
 
-    # signs = []
-    # for i in range(len(models)):
-    #     for j in range(len(models)):
-    #         if i == j:
-    #             continue
+    qsscores = [qsscore_dict[model] for model in models]
 
-    #         if float(tmscore_dict[models[i]]) < float(tmscore_dict[models[j]]):
-    #             signs += [0]
-    #         else:
-    #             signs += [1]
+    qsscores = np.array(qsscores).reshape(-1, 1)
 
-    # np.save(label_folder + '/' + filename + '_edge.npy', signs)
+    np.save(label_folder + '/' + filename + '_node.npy', np.concatenate((tmscores, qsscores), axis=0))
+
+    signs = []
+    for i in range(len(models)):
+        for j in range(len(models)):
+            if i == j:
+                continue
+
+            if float(tmscore_dict[models[i]]) < float(tmscore_dict[models[j]]):
+                signs += [0]
+            else:
+                signs += [1]
+
+    np.save(label_folder + '/' + filename + '_edge.npy', signs)
+            
+
+class DGLData(Dataset):
+    """Data loader"""
+    def __init__(self, dgl_folder: str, label_folder: str, targets):
+        self.target_list = targets
+        self.dgl_folder = dgl_folder
+        self.label_folder = label_folder
+
+        self.data = []
+        self.node_label = []
+        self.edge_label = []
+        self._prepare()
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx], self.node_label[idx], self.edge_label[idx]
+
+    def _prepare(self):
+        for target in self.target_list:
+            target_dgl_folder = self.dgl_folder + '/' + target
+            target_label_folder = self.label_folder + '/' + target
+
+            for dgl_file in os.listdir(target_dgl_folder):
+                g, tmp = dgl.data.utils.load_graphs(target_dgl_folder + '/' + dgl_file)
+                self.data.append(g[0])
+                self.node_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')))
+                self.edge_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_edge.npy')))
 
 
-def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold):
+def collate(samples):
+    """Customer collate function"""
+    graphs, node_labels, edge_labels = zip(*samples)
+    batched_graphs = dgl.batch(graphs)
+    batch_node_labels, batch_edge_labels = None, None
+    for node_label in node_labels:
+        if batch_node_labels is None:
+            batch_node_labels = copy.deepcopy(node_label)
+        else:
+            batch_node_labels = np.concatenate((batch_node_labels, node_label), axis=None)
+    
+    for edge_label in edge_labels:
+        if batch_edge_labels is None:
+            batch_edge_labels = copy.deepcopy(edge_label)
+        else:
+            batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
+
+    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), torch.tensor(batch_edge_labels).float().reshape(-1, 1)
+
+
+def generate_dgl_and_labels(savedir, targets, datadir, scoredir):
     # generating graph
     dgl_folder = savedir + '/dgl'
     os.makedirs(dgl_folder, exist_ok=True)
@@ -230,13 +289,11 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold):
     if not os.path.exists(savedir + '/dgl.done'):
         for target in targets:
             print(f'Generating DGL files for {target}')
-            os.makedirs(dgl_folder + '/' + target, exist_ok=True)
-            Parallel(n_jobs=-1)(delayed(graph_wrapper)(targetname=target, 
+            Parallel(n_jobs=10)(delayed(graph_wrapper)(targetname=target, 
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
-                                                       dgl_folder=dgl_folder + '/' + target,
-                                                       sim_threshold=sim_threshold) 
+                                                       dgl_folder=dgl_folder) 
                                                        for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/dgl.done")
                     
@@ -247,12 +304,11 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold):
     if not os.path.exists(savedir + '/label.done'):
         for target in targets:
             print(f'Generating label files for {target}')
-            os.makedirs(label_folder + '/' + target, exist_ok=True)
             Parallel(n_jobs=10)(delayed(label_wrapper)(targetname=target, 
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
-                                                       label_folder=label_folder + '/' + target) 
+                                                       label_folder=label_folder) 
                                                        for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/label.done")
 
@@ -261,61 +317,133 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold):
 
 def cli_main():
 
-    random_seed = 3407
-
-    L.seed_everything(random_seed, workers=True)
-
     parser = ArgumentParser()
     parser.add_argument('--datadir', type=str, required=True)
     parser.add_argument('--scoredir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--sim_threshold', type=float, default=0.0, required=False)
+    parser.add_argument('--fold', type=int, required=True)
+    parser.add_argument('--project', type=str, required=True)
+
     args = parser.parse_args()
 
     args.gpus = 1
 
-    for sampled_data in os.listdir(args.datadir):
-        
-        if sampled_data != 'k5_n10_t2000':
+    for random_seed in np.random.randint(low=0, high=10000, size=200):
+
+        L.seed_everything(random_seed, workers=True)
+
+        dgldir = f"{args.outdir}/processed_data/dgl"
+        labeldir = f"{args.outdir}/processed_data/label"
+        folddir = f"{args.outdir}/fold{args.fold}"
+
+        lines = open(folddir + '/targets.list').readlines()
+
+        targets_train_in_fold = lines[0].split()
+        targets_val_in_fold = lines[1].split()
+        targets_test_in_fold = lines[2].split()
+
+        print(f"Fold {args.fold}:")
+
+        print(f"Train targets:")
+        print(targets_train_in_fold)
+
+        print(f"Validation targets:")
+        print(targets_val_in_fold)
+
+        print(f"Test targets:")
+        print(targets_test_in_fold)
+
+        if os.path.exists(folddir + '/corr_loss.csv'):
             continue
 
-        sampled_datadir = args.datadir + '/' + sampled_data
+        ckpt_dir = folddir + '/ckpt/' + str(random_seed)
+        os.makedirs(ckpt_dir, exist_ok=True)
 
-        outdir = args.outdir + '/' + sampled_data
+        if os.path.exists(ckpt_dir + 'train.done'):
+            continue
 
-        all_targets = sorted(os.listdir(sampled_datadir))
+        batch_size = 256
+
+        train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
+        train_loader = DataLoader(train_data,
+                                batch_size=batch_size,
+                                num_workers=16,
+                                pin_memory=True,
+                                collate_fn=collate,
+                                shuffle=True)
         
-        savedir = outdir + '/processed_data'
+        val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
+        val_loader = DataLoader(val_data,
+                                batch_size=batch_size,
+                                num_workers=16,
+                                pin_memory=True,
+                                collate_fn=collate,
+                                shuffle=False)
 
-        dgl_folder, label_folder = generate_dgl_and_labels(savedir=savedir, targets=all_targets, datadir=sampled_datadir, scoredir=args.scoredir, sim_threshold=args.sim_threshold)
+        test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+        test_loader = DataLoader(test_data,
+                                batch_size=1,
+                                num_workers=16,
+                                pin_memory=True,
+                                collate_fn=collate,
+                                shuffle=False)
 
-        kf = KFold(n_splits=10, shuffle=True, random_state=42)
+        node_input_dim = 17
+        edge_input_dim = 3
 
-        for i, (train_val_index, test_index) in enumerate(kf.split(all_targets)):
-            
-            folddir = f"{outdir}/fold{i}"
-            os.makedirs(folddir, exist_ok=True)
+        workdir = f'directed_node_seed_{args.project}_fold{args.fold}'
 
-            print(f"Fold {i}:")
+        os.makedirs(workdir, exist_ok=True)
 
-            targets_train_val_in_fold = [all_targets[i] for i in train_val_index]
+        node_input_dim = 17
+        edge_input_dim = 3
+        num_heads = 4
+        num_layer = 4
+        dp_rate = 0.3
+        hidden_dim = 16
+        mlp_dp_rate = 0.3
+        layer_norm = True
 
-            targets_train_in_fold, targets_val_in_fold = train_test_split(targets_train_val_in_fold, test_size=0.1, random_state=42)
+        # initialise the wandb logger and name your wandb project
+        wandb.finish()
 
-            print(f"Train targets:")
-            print(targets_train_in_fold)
+        wandb_logger = WandbLogger(project=workdir, save_dir=workdir)
 
-            print(f"Validation targets:")
-            print(targets_val_in_fold)
+        # add your batch size to the wandb config
+        wandb_logger.experiment.config["random_seed"] = random_seed
+        wandb_logger.experiment.config["batch_size"] = batch_size
+        wandb_logger.experiment.config["node_input_dim"] = node_input_dim
+        wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
+        wandb_logger.experiment.config["num_heads"] = num_heads
+        wandb_logger.experiment.config["num_layer"] = num_layer
+        wandb_logger.experiment.config["dp_rate"] = dp_rate
+        wandb_logger.experiment.config["layer_norm"] = layer_norm
+        wandb_logger.experiment.config["batch_norm"] = not layer_norm
+        wandb_logger.experiment.config["residual"] = True
+        wandb_logger.experiment.config["hidden_dim"] = hidden_dim
+        wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
+        wandb_logger.experiment.config["fold"] = args.fold
+        
+        model = Gate(node_input_dim=node_input_dim,
+                    edge_input_dim=edge_input_dim,
+                    num_heads=num_heads,
+                    num_layer=num_layer,
+                    dp_rate=dp_rate,
+                    layer_norm=layer_norm,
+                    batch_norm=not layer_norm,
+                    residual=True,
+                    hidden_dim=hidden_dim,
+                    mlp_dp_rate=mlp_dp_rate,
+                    check_pt_dir=ckpt_dir,
+                    batch_size=batch_size)
 
-            targets_test_in_fold = [all_targets[i] for i in test_index]
-            print(f"Test targets:")
-            print(targets_test_in_fold)
+        trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger)
 
-            with open(folddir + '/targets.list', 'w') as fw:
-                fw.write('\t'.join(targets_train_in_fold) + '\n')
-                fw.write('\t'.join(targets_val_in_fold) + '\n')
-                fw.write('\t'.join(targets_test_in_fold) + '\n')
+        wandb_logger.watch(model)
+
+        trainer.fit(model, train_loader, val_loader)
+
+        os.system(f'touch {ckpt_dir}/train.done')
     
 
 if __name__ == '__main__':
