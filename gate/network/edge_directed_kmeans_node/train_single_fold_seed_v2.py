@@ -31,14 +31,14 @@ class DGLData(Dataset):
 
         self.data = []
         self.node_label = []
-        self.edge_label = []
+        # self.edge_label = []
         self._prepare()
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx], self.node_label[idx], self.edge_label[idx]
+        return self.data[idx], self.node_label[idx]#, self.edge_label[idx]
 
     def _prepare(self):
         for target in self.target_list:
@@ -49,12 +49,12 @@ class DGLData(Dataset):
                 g, tmp = dgl.data.utils.load_graphs(target_dgl_folder + '/' + dgl_file)
                 self.data.append(g[0])
                 self.node_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')))
-                self.edge_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_edge.npy')))
+                # self.edge_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_edge.npy')))
 
 
 def collate(samples):
     """Customer collate function"""
-    graphs, node_labels, edge_labels = zip(*samples)
+    graphs, node_labels = zip(*samples)
     batched_graphs = dgl.batch(graphs)
     batch_node_labels, batch_edge_labels = None, None
     for node_label in node_labels:
@@ -63,13 +63,13 @@ def collate(samples):
         else:
             batch_node_labels = np.concatenate((batch_node_labels, node_label), axis=None)
     
-    for edge_label in edge_labels:
-        if batch_edge_labels is None:
-            batch_edge_labels = copy.deepcopy(edge_label)
-        else:
-            batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
+    # for edge_label in edge_labels:
+    #     if batch_edge_labels is None:
+    #         batch_edge_labels = copy.deepcopy(edge_label)
+    #     else:
+    #         batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
 
-    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), torch.tensor(batch_edge_labels).float().reshape(-1, 1)
+    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1)# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
 
 
 def cli_main():
@@ -119,7 +119,7 @@ def cli_main():
         if os.path.exists(ckpt_dir + 'train.done'):
             continue
 
-        batch_size = 256
+        batch_size = 512
 
         train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
         train_loader = DataLoader(train_data,

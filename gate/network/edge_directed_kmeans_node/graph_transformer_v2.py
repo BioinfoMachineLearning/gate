@@ -146,7 +146,7 @@ class Gate(L.LightningModule):
         return [checkpoint_callback, early_stop]
 
     def training_step(self, batch, batch_idx):
-        data, node_label, edge_label = batch
+        data, node_label = batch
         node_out = self(data, data.ndata['f'], data.edata['f'])
         node_loss = self.criterion_node(node_out, node_label)
         # edge_loss = self.criterion_edge(edge_out, edge_label)
@@ -158,7 +158,7 @@ class Gate(L.LightningModule):
         return node_loss
     
     def validation_step(self, batch, batch_idx):
-        data, node_label, edge_label = batch
+        data, node_label = batch
 
         node_out = self(data, data.ndata['f'], data.edata['f'])
         node_loss = self.criterion_node(node_out, node_label)
