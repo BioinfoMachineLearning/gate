@@ -85,43 +85,43 @@ def cli_main():
 
     args.gpus = 1
 
+    dgldir = f"{args.outdir}/processed_data/dgl"
+    labeldir = f"{args.outdir}/processed_data/label"
+    folddir = f"{args.outdir}/fold{args.fold}"
+
+    lines = open(folddir + '/targets.list').readlines()
+
+    targets_train_in_fold = lines[0].split()
+    targets_val_in_fold = lines[1].split()
+    targets_test_in_fold = lines[2].split()
+
+    print(f"Fold {args.fold}:")
+
+    print(f"Train targets:")
+    print(targets_train_in_fold)
+
+    print(f"Validation targets:")
+    print(targets_val_in_fold)
+
+    print(f"Test targets:")
+    print(targets_test_in_fold)
+
+    batch_size = 512
+
+    train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
+    val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
+    test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+
     for random_seed in np.random.randint(low=0, high=10000, size=200):
 
         L.seed_everything(random_seed, workers=True)
-
-        dgldir = f"{args.outdir}/processed_data/dgl"
-        labeldir = f"{args.outdir}/processed_data/label"
-        folddir = f"{args.outdir}/fold{args.fold}"
-
-        lines = open(folddir + '/targets.list').readlines()
-
-        targets_train_in_fold = lines[0].split()
-        targets_val_in_fold = lines[1].split()
-        targets_test_in_fold = lines[2].split()
-
-        print(f"Fold {args.fold}:")
-
-        print(f"Train targets:")
-        print(targets_train_in_fold)
-
-        print(f"Validation targets:")
-        print(targets_val_in_fold)
-
-        print(f"Test targets:")
-        print(targets_test_in_fold)
-
-        if os.path.exists(folddir + '/corr_loss.csv'):
-            continue
-
+        
         ckpt_dir = folddir + '/ckpt/' + str(random_seed)
         os.makedirs(ckpt_dir, exist_ok=True)
 
         if os.path.exists(ckpt_dir + 'train.done'):
             continue
-
-        batch_size = 512
-
-        train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
+   
         train_loader = DataLoader(train_data,
                                 batch_size=batch_size,
                                 num_workers=16,
@@ -129,17 +129,8 @@ def cli_main():
                                 collate_fn=collate,
                                 shuffle=True)
         
-        val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
         val_loader = DataLoader(val_data,
                                 batch_size=batch_size,
-                                num_workers=16,
-                                pin_memory=True,
-                                collate_fn=collate,
-                                shuffle=False)
-
-        test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
-        test_loader = DataLoader(test_data,
-                                batch_size=1,
                                 num_workers=16,
                                 pin_memory=True,
                                 collate_fn=collate,
