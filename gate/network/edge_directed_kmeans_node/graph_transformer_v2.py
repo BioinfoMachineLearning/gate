@@ -69,7 +69,10 @@ class Gate(L.LightningModule):
                  hidden_dim,
                  mlp_dp_rate,
                  check_pt_dir,
-                 batch_size):
+                 batch_size,
+                 loss_function,
+                 learning_rate,
+                 weight_decay):
         super().__init__()
 
         self.node_input_dim = node_input_dim
@@ -84,10 +87,12 @@ class Gate(L.LightningModule):
         self.mlp_dp_rate = mlp_dp_rate
         self.check_pt_dir = check_pt_dir
         self.batch_size = batch_size
-
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         # self.criterion = torchmetrics.MeanSquaredError()
-        self.criterion_node = torch.nn.BCELoss()
+        # self.criterion_node = torch.nn.BCELoss()
         # self.criterion_edge = torch.nn.BCELoss()
+        self.criterion_node = loss_function
 
         self.resnet_embedding = ResNetEmbedding(self.node_input_dim,
                                                 self.edge_input_dim,
@@ -109,7 +114,7 @@ class Gate(L.LightningModule):
 
         # self.edge_MLP_layer = MLP(input_dim=self.hidden_dim, output_dim=1, dp_rate=self.mlp_dp_rate)
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['loss_function'])
 
     def forward(self, g, node_feature, edge_feature):
 
@@ -129,7 +134,7 @@ class Gate(L.LightningModule):
 
     def configure_optimizers(self):
         # self.hparams available because we called self.save_hyperparameters()
-        optimizer = torch.optim.AdamW(self.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, betas=(0.9, 0.98), eps=1e-9, weight_decay=self.weight_decay)
         # optimizer = torch.optim.SGD(self.parameters(), lr=0.0001, momentum=0.9)
         # optimizer = NoamOpt(self.hid_dim, 1, 2000, torch.optim.Adam(self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
         scheduler = ReduceLROnPlateau(optimizer, mode='min')
