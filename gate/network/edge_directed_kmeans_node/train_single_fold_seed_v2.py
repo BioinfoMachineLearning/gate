@@ -21,7 +21,10 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 import wandb
 from scipy.stats.stats import pearsonr
 import scipy.sparse as sp
- 
+
+os.environ["WANDB__SERVICE_WAIT"] = "3600"
+os.environ["WANDB_API_KEY"] = "e84c57dee287170f97801b73a63280b155507e00"
+
 class DGLData(Dataset):
     """Data loader"""
     def __init__(self, dgl_folder: str, label_folder: str, targets):
