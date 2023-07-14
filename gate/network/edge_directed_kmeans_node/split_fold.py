@@ -276,9 +276,6 @@ def cli_main():
 
     for sampled_data in os.listdir(args.datadir):
         
-        if sampled_data != 'k5_n10_t2000':
-            continue
-
         sampled_datadir = args.datadir + '/' + sampled_data
 
         outdir = args.outdir + '/' + sampled_data

@@ -66,6 +66,9 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + targetname
         makedir_if_not_exists(outdir)
 
+        if os.path.exists(outdir + '/' + targetname + '.csv'):
+            continue
+            
         generate_interface_model_size(targetname=targetname, 
                                       fasta_path=args.fastadir + '/' + fastafile, 
                                       input_model_dir=args.modeldir + '/' + targetname,

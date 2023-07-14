@@ -15,9 +15,6 @@ def generate_dproqa_scores(indir: str,
                            targetname: str, 
                            model_csv: str):
 
-    model_info_df = pd.read_csv(model_csv)
-    model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
-
     os.chdir(dproqa_dir)
     
     modeldir = outdir + '/models'
@@ -37,6 +34,12 @@ def generate_dproqa_scores(indir: str,
 
         if not os.path.exists(resultfile):
             raise Exception(f"Cannot find {resultfile}!")
+
+    if not os.path.exists(model_csv):
+        return
+        
+    model_info_df = pd.read_csv(model_csv)
+    model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
 
     df = pd.read_csv(resultfile)
     models = [] # list(df['MODEL'])
