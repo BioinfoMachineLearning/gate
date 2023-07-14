@@ -20,6 +20,9 @@ import wandb
 import scipy.sparse as sp
 import torchmetrics
 
+os.environ["WANDB__SERVICE_WAIT"] = "3600"
+os.environ["WANDB_API_KEY"] = "e84c57dee287170f97801b73a63280b155507e00"
+
 class DGLData(Dataset):
     """Data loader"""
     def __init__(self, dgl_folder: str, label_folder: str, targets):
@@ -126,11 +129,11 @@ def cli_main():
     for num_heads in [4, 8]:
         for num_layer in [3, 4, 5]:
             for dp_rate in [0.2, 0.3, 0.4]:
-                for hidden_dim in [16, 32]:
+                for hidden_dim in [16]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
                         for loss_fun in ['mse', 'binary']:
-                            for lr in [0.0001, 0.001, 0.01]:
-                                for weight_decay in [0.001, 0.005, 0.01]:
+                            for lr in [0.0001, 0.001]:
+                                for weight_decay in [0.01]:
 
                                     experiment_name = f"{num_heads}_{num_layer}_{dp_rate}_{hidden_dim}_{mlp_dp_rate}_{loss_fun}_{lr}_{weight_decay}"
                                     
