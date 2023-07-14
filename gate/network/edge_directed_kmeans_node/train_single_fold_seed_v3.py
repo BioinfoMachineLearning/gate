@@ -190,6 +190,9 @@ def cli_main():
                                     if loss_function is None:
                                         continue
 
+                                    ckpt_dir = ckpt_root_dir + '/' + experiment_name
+                                    os.makedirs(ckpt_dir, exist_ok=True)
+
                                     model = Gate(node_input_dim=node_input_dim,
                                                 edge_input_dim=edge_input_dim,
                                                 num_heads=num_heads,
@@ -200,7 +203,7 @@ def cli_main():
                                                 residual=True,
                                                 hidden_dim=hidden_dim,
                                                 mlp_dp_rate=mlp_dp_rate,
-                                                check_pt_dir=ckpt_root_dir,
+                                                check_pt_dir=ckpt_dir,
                                                 batch_size=batch_size,
                                                 loss_function=loss_function,
                                                 learning_rate=lr,
