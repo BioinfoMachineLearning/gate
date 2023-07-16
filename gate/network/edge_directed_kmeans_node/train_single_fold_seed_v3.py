@@ -22,6 +22,7 @@ import torchmetrics
 
 os.environ["WANDB__SERVICE_WAIT"] = "3600"
 os.environ["WANDB_API_KEY"] = "e84c57dee287170f97801b73a63280b155507e00"
+torch.set_printoptions(profile="full")
 
 class DGLData(Dataset):
     """Data loader"""
@@ -30,6 +31,7 @@ class DGLData(Dataset):
         self.dgl_folder = dgl_folder
         self.label_folder = label_folder
 
+        self.data_list = []
         self.data = []
         self.node_label = []
         # self.edge_label = []
@@ -39,7 +41,7 @@ class DGLData(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx], self.node_label[idx]#, self.edge_label[idx]
+        return self.data[idx], self.node_label[idx], self.data_list[idx]#, self.edge_label[idx]
 
     def _prepare(self):
         for target in self.target_list:
@@ -51,11 +53,12 @@ class DGLData(Dataset):
                 self.data.append(g[0])
                 self.node_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')))
                 # self.edge_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_edge.npy')))
+                self.data_list.append(target_dgl_folder + '/' + dgl_file)
 
 
 def collate(samples):
     """Customer collate function"""
-    graphs, node_labels = zip(*samples)
+    graphs, node_labels, data_paths = zip(*samples)
     batched_graphs = dgl.batch(graphs)
     batch_node_labels, batch_edge_labels = None, None
     for node_label in node_labels:
@@ -70,7 +73,7 @@ def collate(samples):
     #     else:
     #         batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
 
-    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1)# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
+    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), data_paths# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
 
 
 def cli_main():
@@ -154,7 +157,7 @@ def cli_main():
                                                             collate_fn=collate,
                                                             shuffle=False)
 
-                                    node_input_dim = 17
+                                    node_input_dim = 18
                                     edge_input_dim = 3
                                     layer_norm = True
 

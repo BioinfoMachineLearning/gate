@@ -22,14 +22,22 @@ class ResNetEmbedding(nn.Module):
 
         # net work module
         self.node_embedding = nn.Linear(node_input_dim, out_dim)
-        self.bn_node = nn.BatchNorm1d(num_features=out_dim)
+        self.bn_node = nn.BatchNorm1d(num_features=out_dim, eps=1e-08)
         self.edge_embedding = nn.Linear(edge_input_dim, out_dim)
-        self.bn_edge = nn.BatchNorm1d(num_features=out_dim)
+        self.bn_edge = nn.BatchNorm1d(num_features=out_dim, eps=1e-08)
         self.relu = nn.LeakyReLU()
 
     def forward(self, node_feature, edge_feature):
         node_feature_embedded = self.node_embedding(node_feature)
+        # print("node_feature_embedded")
+        # if self.training:
+        #     for i in range(16):
+        #         print(node_feature_embedded[:,i])
+        
+        # print(self.bn_node(node_feature_embedded))
         node_feature_embedded = self.relu(self.bn_node(node_feature_embedded))
+        # print("relu+bn")
+        # print(node_feature_embedded)
         edge_feature_embedded = self.edge_embedding(edge_feature)
         edge_feature_embedded = self.relu(self.bn_edge(edge_feature_embedded))
 
@@ -120,6 +128,8 @@ class Gate(L.LightningModule):
 
         h, e = self.resnet_embedding(node_feature, edge_feature)
 
+        # print(h)
+
         h = F.dropout(h, self.dp_rate, training=self.training)
         # e = F.dropout(e, self.dp_rate, training=self.training)
 
@@ -151,9 +161,14 @@ class Gate(L.LightningModule):
         return [checkpoint_callback, early_stop]
 
     def training_step(self, batch, batch_idx):
-        data, node_label = batch
+        data, node_label, data_paths = batch
+        # print(data_paths)
+        # print(data.ndata['f'][0])
         node_out = self(data, data.ndata['f'], data.edata['f'])
+        # print(node_out)
+
         node_loss = self.criterion_node(node_out, node_label)
+        # print(node_loss)
         # edge_loss = self.criterion_edge(edge_out, edge_label)
         # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
 
@@ -163,9 +178,12 @@ class Gate(L.LightningModule):
         return node_loss
     
     def validation_step(self, batch, batch_idx):
-        data, node_label = batch
-
+        data, node_label, data_paths = batch
+        # print(data_paths)
+        # print(data.ndata['f'])
         node_out = self(data, data.ndata['f'], data.edata['f'])
+        # print(node_out)
+
         node_loss = self.criterion_node(node_out, node_label)
         # edge_loss = self.criterion_edge(edge_out, edge_label)
         # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
