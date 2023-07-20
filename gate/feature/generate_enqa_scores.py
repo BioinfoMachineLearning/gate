@@ -67,7 +67,12 @@ def generate_enqa_scores(indir: str,
             target_dict['model'] += [pdb]
             if os.path.exists(resultfile):
                 plddt_scores = np.load(resultfile)
-                global_score = np.mean(plddt_scores)
+                if np.argwhere(np.isnan(plddt_scores)).shape[0] == 0:
+                    global_score = np.mean(plddt_scores)
+                else:
+                    global_score = 0.0
+                    print(f"There are nan values in {resultfile}")
+
                 target_dict['score'] += [global_score]
                 target_dict['score_norm'] += [global_score * float(model_size_ratio[pdb])]
             else:

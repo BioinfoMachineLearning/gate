@@ -138,6 +138,17 @@ def build_model_graph(targetname: str,
     recall_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(recall_scores).reshape(-1, 1))).float()
 
     # To be added: enqa scores
+    enqa_score_file = score_dir + '/enqa/' + targetname + '.csv'
+    enqa_scores_df = pd.read_csv(enqa_score_file)
+    enqa_scores_dict = {k: v for k, v in zip(list(enqa_scores_df['model']), list(enqa_scores_df['score_norm']))}
+
+    enqa_scores = [enqa_scores_dict[model] for model in models]
+
+    # Target too large to run enqa
+    if np.sum(np.array(enqa_scores)) == 0:
+        enqa_score_feature = torch.tensor(enqa_scores).reshape(-1, 1).float()
+    else:
+        enqa_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(enqa_scores).reshape(-1, 1))).float()
 
     # edge features
     # a. global fold similarity between two models
@@ -169,7 +180,7 @@ def build_model_graph(targetname: str,
     update_node_feature(graph, [alphafold_score_feature, 
                                 average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
                                 voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
-                                dproqa_score_feature, icps_score_feature, recall_score_feature, lap_enc_feature])
+                                dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature, lap_enc_feature])
 
     edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
     update_edge_feature(graph, [edge_sin_pos, edge_sim_feature, edge_common_interface_feature])

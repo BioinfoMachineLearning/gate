@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'voro_scores']
+    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'voro_scores', 'enqa']
     targets = sorted(os.listdir(args.indir + '/' + QA_scores[0]))
 
     for target in targets:
@@ -18,6 +18,7 @@ if __name__ == '__main__':
         af_plddt_avg_dict, af_plddt_avg_norm_dict = {}, {}
         icps_dict, recall_dict = {}, {}
         dproqa_dict, dproqa_norm_dict = {}, {}
+        enqa_dict, enqa_norm_dict = {}, {}
         pairwise_dict = {}
         GNN_sum_score_dict, GNN_pcadscore_dict, voromqa_dark_dict = {}, {}, {}
         GNN_sum_score_norm_dict, GNN_pcadscore_norm_dict, voromqa_dark_norm_dict = {}, {}, {}
@@ -48,6 +49,13 @@ if __name__ == '__main__':
                     dockq_norm = df.loc[i, 'DockQ_norm']
                     dproqa_dict[model] = dockq
                     dproqa_norm_dict[model] = dockq_norm
+            elif QA_score == "enqa":
+                for i in range(len(df)):
+                    model = df.loc[i, 'model']
+                    score = df.loc[i, 'score']
+                    score_norm = df.loc[i, 'score_norm']
+                    enqa_dict[model] = score
+                    enqa_norm_dict[model] = score_norm
             elif QA_score == "pairwise":
                 df = pd.read_csv(csv_file, index_col=[0])
                 for model in df.columns:
@@ -74,22 +82,25 @@ if __name__ == '__main__':
                     voromqa_dark_norm_dict[model] = voromqa_dark_norm
 
         data_dict = {'model': [], 
+                    'pairwise': [], 
                     'af_plddt_avg': [], 'af_plddt_avg_norm': [],
                     'icps': [], 'recall': [], 
                     'dproqa': [], 'dproqa_norm': [],
-                    'pairwise': [], 
+                    'enqa': [], 'enqa_norm': [],           
                     'GNN_sum_score': [], 'GNN_pcadscore': [], 'voromqa_dark': [],
                     'GNN_sum_score_norm': [], 'GNN_pcadscore_norm': [], 'voromqa_dark_norm': []}        
         
         for model in models_for_targets:
             data_dict['model'] += [model]
+            data_dict['pairwise'] += [pairwise_dict[model]]
             data_dict['af_plddt_avg'] += [af_plddt_avg_dict[model]]
             data_dict['af_plddt_avg_norm'] += [af_plddt_avg_norm_dict[model]]
             data_dict['icps'] += [icps_dict[model]]
             data_dict['recall'] += [recall_dict[model]]
             data_dict['dproqa'] += [dproqa_dict[model]]
             data_dict['dproqa_norm'] += [dproqa_norm_dict[model]]
-            data_dict['pairwise'] += [pairwise_dict[model]]
+            data_dict['enqa'] += [enqa_dict[model]]
+            data_dict['enqa_norm'] += [enqa_norm_dict[model]]
             data_dict['GNN_sum_score'] += [GNN_sum_score_dict[model]]
             data_dict['GNN_pcadscore'] += [GNN_pcadscore_dict[model]]
             data_dict['voromqa_dark'] += [voromqa_dark_dict[model]]

@@ -19,6 +19,7 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 import wandb
 import scipy.sparse as sp
 import torchmetrics
+import json
 
 os.environ["WANDB__SERVICE_WAIT"] = "3600"
 os.environ["WANDB_API_KEY"] = "e84c57dee287170f97801b73a63280b155507e00"
@@ -195,6 +196,10 @@ def cli_main():
 
                                     ckpt_dir = ckpt_root_dir + '/' + experiment_name
                                     os.makedirs(ckpt_dir, exist_ok=True)
+
+                                    model_dict = {}
+                                    with open(ckpt_dir + '/config.json', 'w') as fw:
+                                        json.dump(dict(wandb_logger.experiment.config), fw, indent = 4)
 
                                     model = Gate(node_input_dim=node_input_dim,
                                                 edge_input_dim=edge_input_dim,

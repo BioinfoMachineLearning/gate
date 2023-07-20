@@ -54,7 +54,7 @@ if __name__ == '__main__':
     print(group_ids)
     group_res = {}
     for group_id in group_ids:
-        print(group_id)
+        # print(group_id)
         corrs = []
         best_tmscores = []
         losses = []
@@ -85,7 +85,7 @@ if __name__ == '__main__':
 
             pred_df = pred_df.sort_values(by=[group_id], ascending=False)
             pred_df.reset_index(inplace=True)
-            print(pred_df)
+            # print(pred_df)
 
             scores_filt = []
             scores_true = []
@@ -108,8 +108,8 @@ if __name__ == '__main__':
                 max_tmscores += ["0"]
                 continue
 
-            print(len(scores_dict))
-            print(len(scores_true))
+            # print(len(scores_dict))
+            # print(len(scores_true))
             corr = pearsonr(np.array(scores_filt), np.array(scores_true))[0]
             # print(corr)
 
