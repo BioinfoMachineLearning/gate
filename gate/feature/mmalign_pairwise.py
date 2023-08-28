@@ -32,7 +32,8 @@ def run_pairwise(mmalign_program, indir, scoredir, outfile):
             pdb2 = pdbs[j]
             if pdb1 == pdb2:
                 continue
-            if os.path.exists(f"{scoredir}/{pdb1}_{pdb2}.mmalign"):
+            resultfile = f"{scoredir}/{pdb1}_{pdb2}.mmalign"
+            if os.path.exists(resultfile) and len(open(resultfile).readlines()) > 15:
                 continue
             process_list.append([mmalign_program, indir, pdb1, pdb2, scoredir])
 
@@ -78,8 +79,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     for target in os.listdir(args.indir):
-        if os.path.exists(args.outdir + '/' + target + '.csv'):
-            continue
+        #if os.path.exists(args.outdir + '/' + target + '.csv'):
+        #    continue
 
         scoredir = args.outdir + '/' + target
         makedir_if_not_exists(scoredir)

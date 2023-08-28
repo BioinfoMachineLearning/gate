@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jl4mc-data-transfer-gate-pod-pvc
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/region
+            operator: In
+            values:
+            - us-central
+  containers:
+  - command:
+    - sh
+    - -c
+    - echo 'I am a new pod for data transfers to one of my PVCs' && sleep infinity
+    image: ubuntu:20.04
+    name: jl4mc-gate-pod-pvc
+    resources:
+      limits:
+        cpu: 2
+        memory: 12Gi
+      requests:
+        cpu: 2
+        memory: 10Gi
+    volumeMounts:
+    - mountPath: /data
+      name: jl4mc-gate-pvc
+  volumes:
+  - name: jl4mc-gate-pvc
+    persistentVolumeClaim:
+      claimName: jl4mc-gate-pvc

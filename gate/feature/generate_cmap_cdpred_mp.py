@@ -204,8 +204,7 @@ def find_interaction_pairs_from_model(inparams):
     else:
         print(model_contact_pairs)
         with open(pdbdir + '/pair.json', 'w') as fw:
-            json.dump(model_contact_pairs, fw, indent = 4) 
-            fw.write(json.dumps(model_contact_pairs))
+            json.dump(model_contact_pairs, fw, indent = 4)
 
     return inpdb, model_contact_pairs
 

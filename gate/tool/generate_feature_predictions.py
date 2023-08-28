@@ -7,10 +7,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-
+    
     args = parser.parse_args()
 
-    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'voro_scores', 'enqa']
+    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'pairwise_aligned', 'pairwise_qsscore', 'voro_scores', 'enqa']
     targets = sorted(os.listdir(args.indir + '/' + QA_scores[0]))
 
     for target in targets:
@@ -19,7 +19,7 @@ if __name__ == '__main__':
         icps_dict, recall_dict = {}, {}
         dproqa_dict, dproqa_norm_dict = {}, {}
         enqa_dict, enqa_norm_dict = {}, {}
-        pairwise_dict = {}
+        pairwise_dict, pairwise_aligned_dict, pairwise_qsscore_dict = {}, {}, {}
         GNN_sum_score_dict, GNN_pcadscore_dict, voromqa_dark_dict = {}, {}, {}
         GNN_sum_score_norm_dict, GNN_pcadscore_norm_dict, voromqa_dark_norm_dict = {}, {}, {}
 
@@ -60,6 +60,14 @@ if __name__ == '__main__':
                 df = pd.read_csv(csv_file, index_col=[0])
                 for model in df.columns:
                     pairwise_dict[model] = np.mean(np.array(df[model]))
+            elif QA_score == "pairwise_aligned":
+                df = pd.read_csv(csv_file, index_col=[0])
+                for model in df.columns:
+                    pairwise_aligned_dict[model] = np.mean(np.array(df[model]))
+            elif QA_score == "pairwise_qsscore":
+                df = pd.read_csv(csv_file, index_col=[0])
+                for model in df.columns:
+                    pairwise_qsscore_dict[model] = np.mean(np.array(df[model]))
             elif QA_score == "voro_scores":
                 for i in range(len(df)):
                     model = df.loc[i, 'model']
@@ -82,7 +90,7 @@ if __name__ == '__main__':
                     voromqa_dark_norm_dict[model] = voromqa_dark_norm
 
         data_dict = {'model': [], 
-                    'pairwise': [], 
+                    'pairwise': [], 'pairwise_aligned': [], 'pairwise_qsscore': [],
                     'af_plddt_avg': [], 'af_plddt_avg_norm': [],
                     'icps': [], 'recall': [], 
                     'dproqa': [], 'dproqa_norm': [],
@@ -93,6 +101,8 @@ if __name__ == '__main__':
         for model in models_for_targets:
             data_dict['model'] += [model]
             data_dict['pairwise'] += [pairwise_dict[model]]
+            data_dict['pairwise_aligned'] += [pairwise_aligned_dict[model]]
+            data_dict['pairwise_qsscore'] += [pairwise_qsscore_dict[model]]
             data_dict['af_plddt_avg'] += [af_plddt_avg_dict[model]]
             data_dict['af_plddt_avg_norm'] += [af_plddt_avg_norm_dict[model]]
             data_dict['icps'] += [icps_dict[model]]

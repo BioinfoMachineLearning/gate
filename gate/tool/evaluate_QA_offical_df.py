@@ -47,10 +47,15 @@ if __name__ == '__main__':
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--nativedir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
+    parser.add_argument('--field', type=str, required=False)
+
     args = parser.parse_args()
 
     scorefile = args.indir + '/' + os.listdir(args.indir)[0]
-    group_ids = pd.read_csv(scorefile).columns[2:]
+    if args.field is None:
+        group_ids = pd.read_csv(scorefile).columns[2:]
+    else:
+        group_ids = [args.field]
     print(group_ids)
     group_res = {}
     for group_id in group_ids:

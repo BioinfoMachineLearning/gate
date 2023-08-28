@@ -14,9 +14,6 @@ def generate_voro_scores(indir: str,
                          targetname: str, 
                          model_csv: str):
 
-    model_info_df = pd.read_csv(model_csv)
-    model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
-
     os.chdir(voro_dir)
     
     modeldir = outdir + '/models'
@@ -37,6 +34,12 @@ def generate_voro_scores(indir: str,
     
         if not os.path.exists(resultfile):
             raise Exception(f"Cannot find {resultfile}!")
+
+    if not os.path.exists(model_csv):
+        return
+
+    model_info_df = pd.read_csv(model_csv)
+    model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
 
     df = pd.read_csv(resultfile, sep=' ')
     # df['GNN_sum_score'] = (df['GNN_sum_score'] - df['GNN_sum_score'].min()) / (df['GNN_sum_score'].max() - df['GNN_sum_score'].min()) 

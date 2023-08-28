@@ -19,8 +19,9 @@ from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
 from lightning.pytorch.loggers.wandb import WandbLogger
 import wandb
-from scipy.stats.stats import pearsonr
 import scipy.sparse as sp
+import json
+import torchmetrics
 
 class DGLData(Dataset):
     """Data loader"""
@@ -78,23 +79,37 @@ def cli_main():
 
     parser = ArgumentParser()
     parser.add_argument('--datadir', type=str, required=True)
-    parser.add_argument('--scoredir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--ckptdir', type=str, required=True)
+    parser.add_argument('--ckptfile', type=str, required=True)
 
     args = parser.parse_args()
 
     device = torch.device('cuda')  # set cuda device
+
+    ckpts_dict = {}
+    for line in open(args.ckptfile):
+        line = line.rstrip('\n')
+        foldname, ckptname = line.split()
+        ckpts_dict[foldname] = ckptname
 
     for fold in range(10):
         
         dgldir = f"{args.outdir}/processed_data/dgl"
         labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
-        ckpt_dir = f"{args.ckptdir}/fold{fold}"
-
+        ckpt_dir = f"{args.ckptdir}/fold{fold}/" + ckpts_dict["fold" + str(fold)]
         if len(os.listdir(ckpt_dir)) == 0:
-            continue
+            raise Exception(f"cannot find any check points in {ckpt_dir}")
+
+        if len(os.listdir(ckpt_dir)) >= 3:
+            raise Exception(f"multiple check points in {ckpt_dir}")
+
+        for ckptfile in os.listdir(ckpt_dir):
+            if ckptfile == "config.json":
+                continue
+            ckptname = ckptfile
+            break
 
         lines = open(folddir + '/targets.list').readlines()
 
@@ -105,28 +120,30 @@ def cli_main():
         print(f"Test targets:")
         print(targets_test_in_fold)
         
-        if os.path.exists(folddir + '/corr_loss.csv'):
-            continue
-
         test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
         test_loader = DataLoader(test_data,
-                                batch_size=1,
+                                batch_size=1024,
                                 num_workers=16,
                                 pin_memory=True,
                                 collate_fn=collate,
                                 shuffle=False)
+        config_file = ckpt_dir + '/config.json'
+        with open(config_file) as f:
+            config_list = json.load(f)
 
-        node_input_dim = 18
-        edge_input_dim = 3
-        num_heads = 4
-        num_layer = 3
-        if fold == 2:
-            num_layer = 4
-
-        dp_rate = 0
-        hidden_dim = 16
-        mlp_dp_rate = 0
-        layer_norm = True
+        node_input_dim = config_list['node_input_dim']
+        edge_input_dim = config_list['edge_input_dim']
+        num_heads = config_list['num_heads']
+        num_layer = config_list['num_layer']
+        dp_rate = config_list['dp_rate']
+        hidden_dim = config_list['hidden_dim']
+        mlp_dp_rate = config_list['mlp_dp_rate']
+        layer_norm = config_list['layer_norm']
+        learning_rate = config_list['lr']
+        weight_decay = config_list['weight_decay']
+        loss_function = torchmetrics.MeanSquaredError()
+        if config_list['loss_fun'] == 'binary':
+            loss_function = torch.nn.BCELoss()
 
         model = Gate(node_input_dim=node_input_dim,
                     edge_input_dim=edge_input_dim,
@@ -139,85 +156,57 @@ def cli_main():
                     hidden_dim=hidden_dim,
                     mlp_dp_rate=mlp_dp_rate,
                     check_pt_dir='',
-                    batch_size=1,
-                    loss_function=torch.nn.BCELoss(),
-                    learning_rate=0.1,
-                    weight_decay=0.01)
+                    batch_size=512,
+                    loss_function=loss_function,
+                    learning_rate=learning_rate,
+                    weight_decay=weight_decay)
 
-        ckpt_path = ckpt_dir + '/' + os.listdir(ckpt_dir)[0]
-
-        model = model.load_from_checkpoint(ckpt_path, loss_function=torch.nn.BCELoss())
+        ckpt_path = ckpt_dir + '/' + ckptname
+        print(ckpt_path)
+        model = model.load_from_checkpoint(ckpt_path, loss_function=loss_function)
 
         model = model.to(device)
 
         model.eval()
 
         pred_subgraph_scores = {}
-        for idx, batch_graphs in enumerate(test_loader):
-            subgraph = batch_graphs[0]
-            batch_x = subgraph.ndata['f'].to(torch.float)
-            batch_e = subgraph.edata['f'].to(torch.float)
-            subgraph = subgraph.to(device)
+        for idx, (batch_graphs, labels, data_paths) in enumerate(test_loader):
+            #print(data_paths)
+            #subgraph = batch_graphs[0]
+            batch_x = batch_graphs.ndata['f'].to(torch.float)
+            batch_e = batch_graphs.edata['f'].to(torch.float)
+            batch_graphs = batch_graphs.to(device)
             batch_x = batch_x.to(device)
             batch_e = batch_e.to(device)
-            batch_scores = model.forward(subgraph, batch_x, batch_e)
-
-            subgraph_paths = test_data.data_list[idx].split('/')
-            subgraph_filename = subgraph_paths[len(subgraph_paths)-1]
-            targetname = subgraph_filename.split('_')[0]
-            subgraph_name = subgraph_filename.split('_', maxsplit=1)[1]
-    
-            subgraph_df = pd.read_csv(f"{args.datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
+            batch_scores = model.forward(batch_graphs, batch_x, batch_e)
             pred_scores = batch_scores.cpu().data.numpy().squeeze(1)
-            for i, modelname in enumerate(subgraph_df.columns):
-                if modelname not in pred_subgraph_scores:
-                    pred_subgraph_scores[modelname] = []
-                pred_subgraph_scores[modelname] += [pred_scores[i]]
 
-        # print(pred_subgraph_scores)
-        fw = open(folddir + '/corr_loss.csv', 'w')
+            start_idx = 0
+            for subgraph_path in data_paths:
+                subgraph_filename = subgraph_path.split('/')[-1]
+                targetname = subgraph_filename.split('_')[0]
+                subgraph_name = subgraph_filename.split('_', maxsplit=1)[1]
+    
+                subgraph_df = pd.read_csv(f"{args.datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
+                for i, modelname in enumerate(subgraph_df.columns):
+                    if modelname not in pred_subgraph_scores:
+                        pred_subgraph_scores[modelname] = []
+                    pred_subgraph_scores[modelname] += [pred_scores[start_idx + i]]
+                start_idx += len(subgraph_df.columns)
 
         for target in targets_test_in_fold:
             models_for_target = [modelname for modelname in pred_subgraph_scores if modelname.split('TS')[0] == target.replace('o','')]    
             # print(models_for_target)
-            ensemble_scores = []
+            ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
             for modelname in models_for_target:
                 mean_score = np.mean(np.array(pred_subgraph_scores[modelname]))
                 ensemble_scores += [mean_score]
-            pd.DataFrame({'model': models_for_target, 'score': ensemble_scores}).to_csv(folddir + '/' + target + '.csv')
-        
-            # native_score_file = args.scoredir + '/label/' + target + '.csv'
-            # native_df = pd.read_csv(native_score_file)
+                ensemble_count += [len(pred_subgraph_scores[modelname])]
+                std += [np.std(np.array(pred_subgraph_scores[modelname]))]
+                normalized_std += [np.std(np.array(pred_subgraph_scores[modelname])) / mean_score]
+            pd.DataFrame({'model': models_for_target, 'score': ensemble_scores, 
+                          'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(folddir + '/' + target + '.csv')
 
-            # native_scores_dict = {}
-            # for i in range(len(native_df)):
-            #     native_scores_dict[native_df.loc[i, 'model']] = float(native_df.loc[i,'tmscore'])
-
-            # corr = pearsonr(np.array(ensemble_scores), np.array(native_df['tmscore']))[0]
-            
-            # pred_df = pd.read_csv(folddir + '/' + target + '.csv')
-            # pred_df = pred_df.sort_values(by=['score'], ascending=False)
-            # pred_df.reset_index(inplace=True)
-
-            # top1_model = pred_df.loc[0, 'model']
-
-            # ranking_loss = float(np.max(np.array(native_df['tmscore']))) - float(native_scores_dict[top1_model])
-
-            # print(f"Target\tcorr\tloss")
-            # print(f"{target}\t{corr}\t{ranking_loss}")
-
-            # fw.write(f"Target\tcorr\tloss\n")
-            # fw.write(f"{target}\t{corr}\t{ranking_loss}\n")
-
-            # pairwise_df = pd.read_csv(args.scoredir + '/pairwise/' + target + '.csv')
-            # average_pairwise_scores = []
-            # for modelname in models_for_target:
-            #     average_pairwise_scores += []
-
-            
-            # corr_pair = pearsonr(np.array(pairwise_df['']), np.array(native_df['tmscore']))[0]
-        
-        fw.close()
     
 
 if __name__ == '__main__':

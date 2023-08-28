@@ -1,0 +1,100 @@
+# batch/v1 tells it to use the JOB API
+apiVersion: batch/v1
+# we are running a Job, not a Pod
+kind: Job
+
+# set the name of the job
+metadata:
+  name: gate-kmeans-v3-sil-c2-0-disk1-fold3-jl4mc
+
+spec:
+  # how many times should the system
+  # retry before calling it a failure
+  backoffLimit: 0
+  template:
+    spec:
+      # should we restart on failure
+      restartPolicy: Never
+      # what containers will we need
+      containers:
+        # the name of the container
+        - name: bml-casp15
+          # the image: can be from any public facing registry such as your GitLab repository's container registry
+          image: gitlab-registry.nrp-nautilus.io/bioinfomachinelearning/bml_casp15:0e10ca23 # replace `IMAGE_TAG` with tag for container of interest
+          # the working dir when the container starts
+          workingDir: /data/
+          # whether Kube should pull it
+          imagePullPolicy: IfNotPresent
+          # we need to expose the port
+          # that will be used for DDP
+          ports:
+            - containerPort: 8880
+          # setting of env variables
+          env:
+            # which interface to use
+            - name: NCCL_SOCKET_IFNAME
+              value: eth0
+            # note: prints some INFO level
+            # NCCL logs
+            - name: NCCL_DEBUG
+              value: INFO
+          # the command to run when the container starts
+          command:
+            [
+              "bash",
+              "-c",
+              "cd /data/gate && source /data/mambaforge/bin/activate && conda activate gate && export PYTHONPATH=/data/gate && python gate/network/edge_directed_kmeans_node/train_single_fold_seed_v3.py --datadir dataset/CASP15_scores/sample/kmeans_v3_c2/kmeans_sil_t2000/ --scoredir dataset/CASP15_scores/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v3_c2_sim/0/kmeans_sil_t2000 --fold 3 --project directed_kmeans_v3_sil_c2_t2000_sim0 --dbdir experiments &> directed_kmeans_v3_sil_c2_t2000_sim0_fold3.log"
+            ]
+          # define the resources for this container
+          resources:
+            # limits - the max given to the container
+            limits:
+              # RAM
+              memory: 50Gi
+              # cores
+              cpu: 4
+              # NVIDIA GPUs
+              nvidia.com/gpu: 1
+            # requests - what we'd like
+            requests:
+              # RAM
+              memory: 50Gi
+              # CPU Cores
+              cpu: 4
+              # GPUs
+              nvidia.com/gpu: 1
+          # what volumes we should mount
+          volumeMounts:
+            # note: my datasets PVC should mount to /data
+            - mountPath: /data
+              name: jl4mc-gate-pvc # REPLACE $USER with your Nautilus username
+            - mountPath: /dev/shm
+              name: dshm
+      # tell Kube where to find credentials with which to pull GitLab Docker containers
+      imagePullSecrets:
+        - name: regcred-bml-casp15
+      # tell Kube where to find the volumes we want to use
+      volumes:
+        # which PVC is my data
+        - name: jl4mc-gate-pvc # REPLACE $USER with your Nautilus username
+          persistentVolumeClaim:
+            claimName: jl4mc-gate-pvc # REPLACE $USER with your Nautilus username
+        # setup shared memory as a RAM volume
+        - name: dshm
+          emptyDir:
+            medium: Memory
+      # tell Kube what type of GPUs we want
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu.product
+                    operator: In
+                    values:
+                      # note: here, we are asking for 24GB GPUs only
+                      - NVIDIA-A10
+                      - NVIDIA-GeForce-RTX-3090
+                      - NVIDIA-TITAN-RTX
+                      - NVIDIA-RTX-A5000
+                      - Quadro-RTX-6000
