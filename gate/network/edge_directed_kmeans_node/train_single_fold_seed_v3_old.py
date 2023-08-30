@@ -112,7 +112,7 @@ def cli_main():
     print(f"Test targets:")
     print(targets_test_in_fold)
 
-    batch_size = 1024
+    batch_size = 512
 
     train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
     val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
@@ -130,12 +130,12 @@ def cli_main():
     ckpt_root_dir = workdir + '/ckpt/'
     os.makedirs(ckpt_root_dir, exist_ok=True)
 
-    for num_heads in [8]: #[4, 8]:
-        for num_layer in [5]: #[3, 4, 5]:
+    for num_heads in [4, 8]:
+        for num_layer in [3, 4, 5]:
             for dp_rate in [0.2, 0.3, 0.4]:
                 for hidden_dim in [16]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
-                        for loss_fun in ['mse']:#, 'binary']:
+                        for loss_fun in ['mse', 'binary']:
                             for lr in [0.0001, 0.001]:
                                 for weight_decay in [0.01]:
 
@@ -158,8 +158,8 @@ def cli_main():
                                                             collate_fn=collate,
                                                             shuffle=False)
 
-                                    node_input_dim = 20 #18
-                                    edge_input_dim = 4 #3
+                                    node_input_dim = 18
+                                    edge_input_dim = 3
                                     layer_norm = True
 
                                     # initialise the wandb logger and name your wandb project

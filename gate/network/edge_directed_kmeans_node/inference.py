@@ -122,28 +122,47 @@ def cli_main():
         
         test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
         test_loader = DataLoader(test_data,
-                                batch_size=1024,
-                                num_workers=16,
+                                batch_size=512,
+                                num_workers=32,
                                 pin_memory=True,
                                 collate_fn=collate,
                                 shuffle=False)
         config_file = ckpt_dir + '/config.json'
-        with open(config_file) as f:
-            config_list = json.load(f)
 
-        node_input_dim = config_list['node_input_dim']
-        edge_input_dim = config_list['edge_input_dim']
-        num_heads = config_list['num_heads']
-        num_layer = config_list['num_layer']
-        dp_rate = config_list['dp_rate']
-        hidden_dim = config_list['hidden_dim']
-        mlp_dp_rate = config_list['mlp_dp_rate']
-        layer_norm = config_list['layer_norm']
-        learning_rate = config_list['lr']
-        weight_decay = config_list['weight_decay']
-        loss_function = torchmetrics.MeanSquaredError()
-        if config_list['loss_fun'] == 'binary':
-            loss_function = torch.nn.BCELoss()
+        if os.path.exists(config_file):
+            with open(config_file) as f:
+                config_list = json.load(f)
+            node_input_dim = config_list['node_input_dim']
+            edge_input_dim = config_list['edge_input_dim']
+            num_heads = config_list['num_heads']
+            num_layer = config_list['num_layer']
+            dp_rate = config_list['dp_rate']
+            hidden_dim = config_list['hidden_dim']
+            mlp_dp_rate = config_list['mlp_dp_rate']
+            layer_norm = config_list['layer_norm']
+            learning_rate = config_list['lr']
+            weight_decay = config_list['weight_decay']
+            loss_function = torchmetrics.MeanSquaredError()
+            if config_list['loss_fun'] == 'binary':
+                loss_function = torch.nn.BCELoss()
+        else:
+            raise Exception(f"Cannot find the config file: {config_file}")
+            # node_input_dim = 8
+            # edge_input_dim = 16
+
+            # config_name = ckpts_dict["fold" + str(fold)]
+            # num_heads, num_layer, dp_rate, hidden_dim, mlp_dp_rate, loss_fun, lr, weight_decay = config_name.split('_')
+            # num_heads = int(num_heads)
+            # num_layer = int(num_layer)
+            # dp_rate = float(dp_rate)
+            # hidden_dim = int(hidden_dim)
+            # mlp_dp_rate = float(mlp_dp_rate)
+            # layer_norm = True
+            # learning_rate = float(lr)
+            # weight_decay = float(weight_decay)
+            # loss_function = torchmetrics.MeanSquaredError()
+            # if loss_fun == 'binary':
+            #     loss_function = torch.nn.BCELoss()
 
         model = Gate(node_input_dim=node_input_dim,
                     edge_input_dim=edge_input_dim,
