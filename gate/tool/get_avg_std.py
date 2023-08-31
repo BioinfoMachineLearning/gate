@@ -18,7 +18,7 @@ if __name__ == "__main__":
         mean_std = np.mean(np.array(df['std']))
         mean_std_norm = np.mean(np.array(df['std_norm']))
         # print(df)
-        print(f"{targetname} {str(mean_std)} {str(mean_std_norm)}")
+        print(f"{str(mean_std)} {str(mean_std_norm)}")
 
 
 
