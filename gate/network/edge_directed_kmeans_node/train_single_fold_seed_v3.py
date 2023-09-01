@@ -112,7 +112,7 @@ def cli_main():
     print(f"Test targets:")
     print(targets_test_in_fold)
 
-    batch_size = 1024
+    batch_size = 512
 
     train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
     val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
