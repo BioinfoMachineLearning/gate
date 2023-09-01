@@ -69,8 +69,7 @@ def build_model_graph(targetname: str,
                       filename: str,
                       score_dir: str,
                       out: str,
-                      sim_threshold: float,
-                      auto_sim_threshold: bool) -> None:
+                      sim_threshold: float) -> None:
     """Build KNN graph and assign node and edge features. node feature: N * 35, Edge feature: E * 6"""
     if not os.path.exists(subgraph_file):
         raise FileNotFoundError(f'Cannot not find subgraph: {subgraph_file} ')
@@ -78,12 +77,11 @@ def build_model_graph(targetname: str,
     # print(f'Processing {filename}')
     scaler = MinMaxScaler()
 
-    subgraph_mmalign_df = pd.read_csv(subgraph_file, index_col=[0])
-    subgraph_qsscore_df = pd.read_csv(subgraph_file.replace('mmalign', 'qsscore'), index_col=[0])
+    subgraph_df = pd.read_csv(subgraph_file, index_col=[0])
 
-    nodes_num = len(subgraph_mmalign_df)
+    nodes_num = len(subgraph_df)
 
-    models = subgraph_mmalign_df.columns
+    models = subgraph_df.columns
 
     # node features
     # a. alphafold global plddt score
@@ -96,24 +94,13 @@ def build_model_graph(targetname: str,
 
     # b1. average pairwise similarity score in graph
     # b2. average pairwise similarity score for all models
-
-    average_sim_scores_in_subgraph = [np.mean(np.array(subgraph_mmalign_df[model])) for model in models]
+    average_sim_scores_in_subgraph = [np.mean(np.array(subgraph_df[model])) for model in models]
     average_sim_score_in_subgraph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_scores_in_subgraph).reshape(-1, 1))).float()
 
-    fullgraph_mmalign_file = score_dir + '/pairwise_aligned/' + targetname + '.csv'
-    full_mmalign_graph_df = pd.read_csv(fullgraph_mmalign_file, index_col=[0])
-    average_sim_scores_in_full_graph = [np.mean(np.array(full_mmalign_graph_df[model])) for model in models]
+    fullgraph_file = score_dir + '/pairwise/' + targetname + '.csv'
+    full_graph_df = pd.read_csv(fullgraph_file, index_col=[0])
+    average_sim_scores_in_full_graph = [np.mean(np.array(full_graph_df[model])) for model in models]
     average_sim_score_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_scores_in_full_graph).reshape(-1, 1))).float()
-
-    # b3. average pairwise qsscore in graph
-    # b4. average pairwise qsscore in graph
-    average_sim_qsscores_in_subgraph = [np.mean(np.array(subgraph_qsscore_df[model])) for model in models]
-    average_sim_qsscore_in_subgraph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_qsscores_in_subgraph).reshape(-1, 1))).float()
-
-    fullgraph_qsscore_file = score_dir + '/pairwise_qsscore/' + targetname + '.csv'
-    full_qsscore_graph_df = pd.read_csv(fullgraph_qsscore_file, index_col=[0])
-    average_sim_qsscores_in_full_graph = [np.mean(np.array(full_qsscore_graph_df[model])) for model in models]
-    average_sim_qsscore_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_qsscores_in_full_graph).reshape(-1, 1))).float()
 
     # c. voro scores: gnn, gnn_pcadscore, voromqa_dark
     voro_scores_file = score_dir + '/voro_scores/' + targetname + '.csv'
@@ -166,32 +153,25 @@ def build_model_graph(targetname: str,
     # edge features
     # a. global fold similarity between two models
     # b. number of common interfaces
-    subgraph_mmalign_array = np.array(subgraph_mmalign_df)
-    subgraph_qsscore_array = np.array(subgraph_qsscore_df)
+    subgraph_array = np.array(subgraph_df)
     common_interface_csv_file = score_dir + '/edge_features/' + targetname + '.csv'
     common_interface_array = np.array(pd.read_csv(common_interface_csv_file, index_col=[0]))
     
-    if auto_sim_threshold:
-        sim_threshold = np.mean(np.array(full_mmalign_graph_df))
-
-    print(sim_threshold)
     src_nodes, dst_nodes = [], []
-    edge_sim, edge_qsscore_sim, edge_common_interface = [], [], []
+    edge_sim, edge_common_interface = [], []
     for src in range(nodes_num):
         for dst in range(nodes_num):
             if src == dst:
                 continue
-            if subgraph_mmalign_array[dst, src] >= sim_threshold:
+            if subgraph_array[dst, src] >= sim_threshold:
                 src_nodes += [src]
                 dst_nodes += [dst]
 
-                # edge_sim += [subgraph_mmalign_array[dst, src]] # non-symmetric matrix, the similarity score should be noramlized by the target model
-                edge_sim += [subgraph_mmalign_array[src, dst]] # should be normalized by the source model? e.g., source model is larger
-                edge_qsscore_sim += [subgraph_qsscore_array[src, dst]]
+                # edge_sim += [subgraph_array[dst, src]] # non-symmetric matrix, the similarity score should be noramlized by the target model
+                edge_sim += [subgraph_array[src, dst]] # should be normalized by the source model? e.g., source model is larger
                 edge_common_interface += [common_interface_array[src, dst]]
 
     edge_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_sim).reshape(-1, 1))).float()
-    edge_qsscore_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_qsscore_sim).reshape(-1, 1))).float()
     edge_common_interface_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_common_interface).reshape(-1, 1))).float()
 
     # 6. add feature to graph
@@ -199,26 +179,24 @@ def build_model_graph(targetname: str,
     lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
     update_node_feature(graph, [alphafold_score_feature, 
                                 average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
-                                average_sim_qsscore_in_subgraph_feature, average_sim_qsscore_in_full_graph_feature,
                                 voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
                                 dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature, lap_enc_feature])
 
     edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
-    update_edge_feature(graph, [edge_sin_pos, edge_sim_feature, edge_qsscore_sim_feature, edge_common_interface_feature])
+    update_edge_feature(graph, [edge_sin_pos, edge_sim_feature, edge_common_interface_feature])
 
     dgl.save_graphs(filename=os.path.join(out, f'{filename}.dgl'), g_list=graph)
     # print(f'{filename}\nSUCCESS')
     return None
 
 
-def graph_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, dgl_folder: str, sim_threshold: float, auto_sim_threshold: bool):
+def graph_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, dgl_folder: str, sim_threshold: float):
     build_model_graph(targetname=targetname,
                       subgraph_file=subgraph_file,
                       filename=filename,
                       score_dir=score_dir,
                       out=dgl_folder,
-                      sim_threshold=sim_threshold,
-                      auto_sim_threshold=auto_sim_threshold)
+                      sim_threshold=sim_threshold)
 
 
 def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir: str, label_folder: str):
@@ -227,9 +205,9 @@ def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir:
 
     # print(f'Processing {filename}')
 
-    subgraph_mmalign_df = pd.read_csv(subgraph_file, index_col=[0])
+    subgraph_df = pd.read_csv(subgraph_file, index_col=[0])
 
-    models = subgraph_mmalign_df.columns
+    models = subgraph_df.columns
 
     label_df = pd.read_csv(score_dir + '/label/' + targetname + '.csv')
 
@@ -255,7 +233,7 @@ def label_wrapper(targetname: str, subgraph_file: str, filename: str, score_dir:
     # np.save(label_folder + '/' + filename + '_edge.npy', signs)
 
 
-def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold, auto_sim_threshold):
+def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold):
     # generating graph
     dgl_folder = savedir + '/dgl'
     os.makedirs(dgl_folder, exist_ok=True)
@@ -269,9 +247,8 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
                                                        dgl_folder=dgl_folder + '/' + target,
-                                                       sim_threshold=sim_threshold,
-                                                       auto_sim_threshold=auto_sim_threshold) 
-                                                       for subgraph_file in os.listdir(datadir + '/' + target) if subgraph_file.find('mmalign') > 0)
+                                                       sim_threshold=sim_threshold) 
+                                                       for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/dgl.done")
                     
     # generating labels
@@ -304,8 +281,6 @@ def cli_main():
     parser.add_argument('--scoredir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--sim_threshold', type=float, default=0.0, required=False)
-    parser.add_argument('--auto_sim_threshold', default=False, type=lambda x: (str(x).lower() == 'true'))
-
     args = parser.parse_args()
 
     args.gpus = 1
@@ -320,9 +295,7 @@ def cli_main():
         
         savedir = outdir + '/processed_data'
 
-        dgl_folder, label_folder = generate_dgl_and_labels(savedir=savedir, targets=all_targets, datadir=sampled_datadir, 
-                                                           scoredir=args.scoredir, sim_threshold=args.sim_threshold,
-                                                           auto_sim_threshold=args.auto_sim_threshold)
+        dgl_folder, label_folder = generate_dgl_and_labels(savedir=savedir, targets=all_targets, datadir=sampled_datadir, scoredir=args.scoredir, sim_threshold=args.sim_threshold)
 
         kf = KFold(n_splits=10, shuffle=True, random_state=42)
 

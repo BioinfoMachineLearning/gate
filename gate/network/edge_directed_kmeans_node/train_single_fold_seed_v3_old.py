@@ -130,51 +130,37 @@ def cli_main():
     ckpt_root_dir = workdir + '/ckpt/'
     os.makedirs(ckpt_root_dir, exist_ok=True)
 
-    node_input_dim = 20 #18
-    edge_input_dim = 4 #3
-    layer_norm = True
-    residual = True
-    batch_norm = not layer_norm
-
     for num_heads in [4, 8]:
         for num_layer in [3, 4, 5]:
             for dp_rate in [0.2, 0.3, 0.4]:
                 for hidden_dim in [16]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
-                        for loss_fun in ['mse']:#, 'binary']:
+                        for loss_fun in ['mse', 'binary']:
                             for lr in [0.0001, 0.001]:
                                 for weight_decay in [0.01]:
-                                    
-                                    experiment_name = f"{node_input_dim}_" \
-                                                      f"{edge_input_dim}_" \
-                                                      f"{num_heads}_" \
-                                                      f"{num_layer}_" \
-                                                      f"{dp_rate}_" \
-                                                      f"{layer_norm}_" \
-                                                      f"{batch_norm}_" \
-                                                      f"{residual}_" \
-                                                      f"{hidden_dim}_" \
-                                                      f"{mlp_dp_rate}_" \
-                                                      f"{loss_fun}_" \
-                                                      f"{lr}_" \
-                                                      f"{weight_decay}"
+
+                                    experiment_name = f"{num_heads}_{num_layer}_{dp_rate}_{hidden_dim}_{mlp_dp_rate}_{loss_fun}_{lr}_{weight_decay}"
                                     
                                     if os.path.exists(f"{ckpt_root_dir}/{experiment_name}.done"):
                                         continue
                             
                                     train_loader = DataLoader(train_data,
                                                             batch_size=batch_size,
-                                                            num_workers=24,
+                                                            num_workers=16,
                                                             pin_memory=True,
                                                             collate_fn=collate,
                                                             shuffle=True)
                                     
                                     val_loader = DataLoader(val_data,
                                                             batch_size=batch_size,
-                                                            num_workers=24,
+                                                            num_workers=16,
                                                             pin_memory=True,
                                                             collate_fn=collate,
                                                             shuffle=False)
+
+                                    node_input_dim = 18
+                                    edge_input_dim = 3
+                                    layer_norm = True
 
                                     # initialise the wandb logger and name your wandb project
                                     wandb.finish()
@@ -190,8 +176,8 @@ def cli_main():
                                     wandb_logger.experiment.config["num_layer"] = num_layer
                                     wandb_logger.experiment.config["dp_rate"] = dp_rate
                                     wandb_logger.experiment.config["layer_norm"] = layer_norm
-                                    wandb_logger.experiment.config["batch_norm"] = batch_norm
-                                    wandb_logger.experiment.config["residual"] = residual
+                                    wandb_logger.experiment.config["batch_norm"] = not layer_norm
+                                    wandb_logger.experiment.config["residual"] = True
                                     wandb_logger.experiment.config["hidden_dim"] = hidden_dim
                                     wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
                                     wandb_logger.experiment.config["loss_fun"] = loss_fun
