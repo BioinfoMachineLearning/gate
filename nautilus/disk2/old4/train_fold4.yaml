@@ -5,7 +5,7 @@ kind: Job
 
 # set the name of the job
 metadata:
-  name: gate-kmeans-v4-03-disk2-fold5-jl4mc
+  name: gate-kmeans-v3-sil-c2-05-disk2-fold4-jl4mc
 
 spec:
   # how many times should the system
@@ -43,24 +43,24 @@ spec:
             [
               "bash",
               "-c",
-              "cd /data/gate && source /data/mambaforge/bin/activate && conda activate gate && export PYTHONPATH=/data/gate && python gate/network/edge_directed_kmeans_node/train_single_fold_seed_v3.py --datadir dataset/CASP15_scores/sample/kmeans_v4/kmeans_sil_t2000/ --scoredir dataset/CASP15_scores/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v4_sim/0.3/kmeans_sil_t2000 --fold 5 --project directed_kmeans_v4_t2000_sim0.3 --dbdir experiments &> directed_kmeans_v4_t2000_sim0.3_fold5.log"
+              "cd /data/gate && source /data/mambaforge/bin/activate && conda activate gate && export PYTHONPATH=/data/gate && python gate/network/edge_directed_kmeans_node/train_single_fold_seed_v3.py --datadir dataset/CASP15_scores/sample/kmeans_v3_c2/kmeans_sil_t2000/ --scoredir dataset/CASP15_scores/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v3_c2_sim/0.5/kmeans_sil_t2000 --fold 4 --project directed_kmeans_v3_sil_c2_t2000_sim0.5 --dbdir experiments &> directed_kmeans_v3_sil_c2_t2000_sim0.5_fold4.log"
             ]
           # define the resources for this container
           resources:
             # limits - the max given to the container
             limits:
               # RAM
-              memory: 30Gi
+              memory: 50Gi
               # cores
-              cpu: 6
+              cpu: 4
               # NVIDIA GPUs
               nvidia.com/gpu: 1
             # requests - what we'd like
             requests:
               # RAM
-              memory: 30Gi
+              memory: 50Gi
               # CPU Cores
-              cpu: 6
+              cpu: 4
               # GPUs
               nvidia.com/gpu: 1
           # what volumes we should mount
