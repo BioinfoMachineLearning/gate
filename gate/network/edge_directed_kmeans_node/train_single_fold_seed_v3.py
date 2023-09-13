@@ -86,6 +86,7 @@ def cli_main():
     parser.add_argument('--fold', type=int, required=True)
     parser.add_argument('--project', type=str, required=True)
     parser.add_argument('--dbdir', type=str, required=True)
+    parser.add_argument('--labeldir', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -130,114 +131,116 @@ def cli_main():
     ckpt_root_dir = workdir + '/ckpt/'
     os.makedirs(ckpt_root_dir, exist_ok=True)
 
-    node_input_dim = 20 #18
-    edge_input_dim = 4 #3
-    layer_norm = True
+    node_input_dim = 22 # 20 #18
+    edge_input_dim = 5 # 4 #3
     residual = True
-    batch_norm = not layer_norm
-
-    for num_heads in [4, 8]:
+    for num_heads in [8]:
         for num_layer in [3, 4, 5]:
             for dp_rate in [0.2, 0.3, 0.4]:
-                for hidden_dim in [16]:
+                for hidden_dim in [16, 32]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
                         for loss_fun in ['mse']:#, 'binary']:
                             for lr in [0.0001, 0.001]:
                                 for weight_decay in [0.01]:
-                                    
-                                    experiment_name = f"{node_input_dim}_" \
-                                                      f"{edge_input_dim}_" \
-                                                      f"{num_heads}_" \
-                                                      f"{num_layer}_" \
-                                                      f"{dp_rate}_" \
-                                                      f"{layer_norm}_" \
-                                                      f"{batch_norm}_" \
-                                                      f"{residual}_" \
-                                                      f"{hidden_dim}_" \
-                                                      f"{mlp_dp_rate}_" \
-                                                      f"{loss_fun}_" \
-                                                      f"{lr}_" \
-                                                      f"{weight_decay}"
-                                    
-                                    if os.path.exists(f"{ckpt_root_dir}/{experiment_name}.done"):
-                                        continue
-                            
-                                    train_loader = DataLoader(train_data,
-                                                            batch_size=batch_size,
-                                                            num_workers=24,
-                                                            pin_memory=True,
-                                                            collate_fn=collate,
-                                                            shuffle=True)
-                                    
-                                    val_loader = DataLoader(val_data,
-                                                            batch_size=batch_size,
-                                                            num_workers=24,
-                                                            pin_memory=True,
-                                                            collate_fn=collate,
-                                                            shuffle=False)
+                                    for layer_norm in [False, True]:
+                                        batch_norm = not layer_norm
+                                        experiment_name = f"{node_input_dim}_" \
+                                                        f"{edge_input_dim}_" \
+                                                        f"{num_heads}_" \
+                                                        f"{num_layer}_" \
+                                                        f"{dp_rate}_" \
+                                                        f"{layer_norm}_" \
+                                                        f"{batch_norm}_" \
+                                                        f"{residual}_" \
+                                                        f"{hidden_dim}_" \
+                                                        f"{mlp_dp_rate}_" \
+                                                        f"{loss_fun}_" \
+                                                        f"{lr}_" \
+                                                        f"{weight_decay}"
+                                        
+                                        if os.path.exists(f"{ckpt_root_dir}/{experiment_name}.done"):
+                                            continue
+                                
+                                        train_loader = DataLoader(train_data,
+                                                                batch_size=batch_size,
+                                                                num_workers=64,
+                                                                pin_memory=True,
+                                                                collate_fn=collate,
+                                                                shuffle=True)
+                                        
+                                        val_loader = DataLoader(val_data,
+                                                                batch_size=batch_size,
+                                                                num_workers=64,
+                                                                pin_memory=True,
+                                                                collate_fn=collate,
+                                                                shuffle=False)
 
-                                    # initialise the wandb logger and name your wandb project
-                                    wandb.finish()
+                                        # initialise the wandb logger and name your wandb project
+                                        wandb.finish()
 
-                                    wandb_logger = WandbLogger(project=projectname, save_dir=workdir)
+                                        wandb_logger = WandbLogger(project=projectname, save_dir=workdir)
 
-                                    # add your batch size to the wandb config
-                                    wandb_logger.experiment.config["random_seed"] = random_seed
-                                    wandb_logger.experiment.config["batch_size"] = batch_size
-                                    wandb_logger.experiment.config["node_input_dim"] = node_input_dim
-                                    wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
-                                    wandb_logger.experiment.config["num_heads"] = num_heads
-                                    wandb_logger.experiment.config["num_layer"] = num_layer
-                                    wandb_logger.experiment.config["dp_rate"] = dp_rate
-                                    wandb_logger.experiment.config["layer_norm"] = layer_norm
-                                    wandb_logger.experiment.config["batch_norm"] = batch_norm
-                                    wandb_logger.experiment.config["residual"] = residual
-                                    wandb_logger.experiment.config["hidden_dim"] = hidden_dim
-                                    wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
-                                    wandb_logger.experiment.config["loss_fun"] = loss_fun
-                                    wandb_logger.experiment.config["lr"] = lr
-                                    wandb_logger.experiment.config["weight_decay"] = weight_decay
-                                    wandb_logger.experiment.config["fold"] = args.fold
-                                    
-                                    loss_function = None
-                                    if loss_fun == 'mse':
-                                        loss_function = torchmetrics.MeanSquaredError()
-                                    elif loss_fun == 'binary':
-                                        loss_function = torch.nn.BCELoss()
+                                        # add your batch size to the wandb config
+                                        wandb_logger.experiment.config["random_seed"] = random_seed
+                                        wandb_logger.experiment.config["batch_size"] = batch_size
+                                        wandb_logger.experiment.config["node_input_dim"] = node_input_dim
+                                        wandb_logger.experiment.config["edge_input_dim"] = edge_input_dim
+                                        wandb_logger.experiment.config["num_heads"] = num_heads
+                                        wandb_logger.experiment.config["num_layer"] = num_layer
+                                        wandb_logger.experiment.config["dp_rate"] = dp_rate
+                                        wandb_logger.experiment.config["layer_norm"] = layer_norm
+                                        wandb_logger.experiment.config["batch_norm"] = batch_norm
+                                        wandb_logger.experiment.config["residual"] = residual
+                                        wandb_logger.experiment.config["hidden_dim"] = hidden_dim
+                                        wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
+                                        wandb_logger.experiment.config["loss_fun"] = loss_fun
+                                        wandb_logger.experiment.config["lr"] = lr
+                                        wandb_logger.experiment.config["weight_decay"] = weight_decay
+                                        wandb_logger.experiment.config["fold"] = args.fold
+                                        
+                                        loss_function = None
+                                        if loss_fun == 'mse':
+                                            loss_function = torchmetrics.MeanSquaredError()
+                                        elif loss_fun == 'binary':
+                                            loss_function = torch.nn.BCELoss()
 
-                                    if loss_function is None:
-                                        continue
+                                        if loss_function is None:
+                                            continue
 
-                                    ckpt_dir = ckpt_root_dir + '/' + experiment_name
-                                    os.makedirs(ckpt_dir, exist_ok=True)
+                                        ckpt_dir = ckpt_root_dir + '/' + experiment_name
+                                        os.makedirs(ckpt_dir, exist_ok=True)
 
-                                    model_dict = {}
-                                    with open(ckpt_dir + '/config.json', 'w') as fw:
-                                        json.dump(dict(wandb_logger.experiment.config), fw, indent = 4)
+                                        model_dict = {}
+                                        with open(ckpt_dir + '/config.json', 'w') as fw:
+                                            json.dump(dict(wandb_logger.experiment.config), fw, indent = 4)
 
-                                    model = Gate(node_input_dim=node_input_dim,
-                                                edge_input_dim=edge_input_dim,
-                                                num_heads=num_heads,
-                                                num_layer=num_layer,
-                                                dp_rate=dp_rate,
-                                                layer_norm=layer_norm,
-                                                batch_norm=not layer_norm,
-                                                residual=True,
-                                                hidden_dim=hidden_dim,
-                                                mlp_dp_rate=mlp_dp_rate,
-                                                check_pt_dir=ckpt_dir,
-                                                batch_size=batch_size,
-                                                loss_function=loss_function,
-                                                learning_rate=lr,
-                                                weight_decay=weight_decay)
+                                        model = Gate(node_input_dim=node_input_dim,
+                                                    edge_input_dim=edge_input_dim,
+                                                    num_heads=num_heads,
+                                                    num_layer=num_layer,
+                                                    dp_rate=dp_rate,
+                                                    layer_norm=layer_norm,
+                                                    batch_norm=not layer_norm,
+                                                    residual=True,
+                                                    hidden_dim=hidden_dim,
+                                                    mlp_dp_rate=mlp_dp_rate,
+                                                    check_pt_dir=ckpt_dir,
+                                                    batch_size=batch_size,
+                                                    loss_function=loss_function,
+                                                    learning_rate=lr,
+                                                    weight_decay=weight_decay,
+                                                    train_targets=targets_train_in_fold,
+                                                    valid_targets=targets_val_in_fold,
+                                                    datadir=args.datadir,
+                                                    labeldir=args.labeldir)
 
-                                    trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger, deterministic=True)
+                                        trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger, deterministic=True)
 
-                                    wandb_logger.watch(model)
+                                        wandb_logger.watch(model)
 
-                                    trainer.fit(model, train_loader, val_loader)
+                                        trainer.fit(model, train_loader, val_loader)
 
-                                    os.system(f"touch {ckpt_root_dir}/{experiment_name}.done")
+                                        os.system(f"touch {ckpt_root_dir}/{experiment_name}.done")
     
 
 if __name__ == '__main__':

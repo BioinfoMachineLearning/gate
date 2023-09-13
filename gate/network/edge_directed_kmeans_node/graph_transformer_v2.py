@@ -12,6 +12,10 @@ import lightning as L
 from graph_transformer_edge_layer import GraphTransformerLayer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.nn.functional as F
+import torchmetrics
+import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_squared_error
 
 class ResNetEmbedding(nn.Module):
     """Feature Learning Module"""
@@ -80,7 +84,8 @@ class Gate(L.LightningModule):
                  batch_size,
                  loss_function,
                  learning_rate,
-                 weight_decay):
+                 weight_decay,
+                 train_targets, valid_targets, datadir, labeldir):
         super().__init__()
 
         self.node_input_dim = node_input_dim
@@ -124,6 +129,13 @@ class Gate(L.LightningModule):
 
         self.save_hyperparameters(ignore=['loss_function'])
 
+        self.training_step_data_paths,  self.training_step_outputs = [], []
+        self.valid_step_data_paths, self.valid_step_outputs = [], []
+        self.train_targets = train_targets
+        self.valid_targets = valid_targets
+        self.datadir = datadir
+        self.labeldir = labeldir
+
     def forward(self, g, node_feature, edge_feature):
 
         h, e = self.resnet_embedding(node_feature, edge_feature)
@@ -160,6 +172,29 @@ class Gate(L.LightningModule):
         early_stop = L.pytorch.callbacks.EarlyStopping(monitor="valid_loss", mode="min", patience=15)
         return [checkpoint_callback, early_stop]
 
+    def save_graph_outputs(self, data_paths, pred_scores, train):
+        if train:
+            target_pred_subgraph_scores = self.train_target_pred_subgraph_scores
+        else:
+            target_pred_subgraph_scores = self.val_target_pred_subgraph_scores
+
+        start_idx = 0
+        for subgraph_path in data_paths:
+            subgraph_filename = subgraph_path.split('/')[-1]
+            targetname = subgraph_filename.split('_')[0]
+            subgraph_name = subgraph_filename.split('_', maxsplit=1)[1]
+                
+            if targetname not in target_pred_subgraph_scores:
+                target_pred_subgraph_scores[targetname] = {}
+
+            subgraph_df = pd.read_csv(f"{self.datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
+            for i, modelname in enumerate(subgraph_df.columns):
+                if modelname not in target_pred_subgraph_scores[targetname]:
+                    target_pred_subgraph_scores[targetname][modelname] = []
+                target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
+            start_idx += len(subgraph_df.columns)
+
+
     def training_step(self, batch, batch_idx):
         data, node_label, data_paths = batch
         # print(data_paths)
@@ -175,6 +210,8 @@ class Gate(L.LightningModule):
         self.log('train_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('train_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        self.training_step_data_paths.append(data_paths)
+        self.training_step_outputs.append(node_out)
         return node_loss
     
     def validation_step(self, batch, batch_idx):
@@ -191,8 +228,91 @@ class Gate(L.LightningModule):
         self.log('valid_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        self.valid_step_data_paths.append(data_paths)
+        self.valid_step_outputs.append(node_out)
         return node_loss
 
+    def on_train_epoch_end(self):
+        target_pred_subgraph_scores = {}
+        for subgraph_paths, pred_scores in zip(self.training_step_data_paths, self.training_step_outputs):
+            pred_scores = pred_scores.cpu().data.numpy().squeeze(1)
+            start_idx = 0
+            for subgraph_path in subgraph_paths:
+                subgraph_filename = subgraph_path.split('/')[-1]
+                targetname = subgraph_filename.split('_')[0]
+                subgraph_name = subgraph_filename.split('_', maxsplit=1)[1]
+                    
+                if targetname not in target_pred_subgraph_scores:
+                    target_pred_subgraph_scores[targetname] = {}
+
+                subgraph_df = pd.read_csv(f"{self.datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
+                for i, modelname in enumerate(subgraph_df.columns):
+                    if modelname not in target_pred_subgraph_scores[targetname]:
+                        target_pred_subgraph_scores[targetname][modelname] = []
+                    target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
+                start_idx += len(subgraph_df.columns)
+
+        self.training_step_outputs.clear()  # free memory
+        self.training_step_data_paths.clear()  # free memory
+        if len(self.train_targets) != len(target_pred_subgraph_scores):
+            return
+
+        target_mean_mse, target_median_mse = [], []
+        for target in self.train_targets:
+            ensemble_mean_scores, ensemble_median_scores = [], []
+            for modelname in target_pred_subgraph_scores[target]:
+                ensemble_mean_scores += [np.mean(np.array(target_pred_subgraph_scores[target][modelname].cpu()))]
+                ensemble_median_scores += [np.median(np.array(target_pred_subgraph_scores[target][modelname].cpu()))]
+            pred_df = pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'mean_score': ensemble_mean_scores, 
+                                    'median_score': ensemble_median_scores})
+            native_df = pd.read_csv(self.labeldir + '/' + target + '.csv')
+            merge_df = pred_df.merge(native_df, on=f'model', how="inner")
+            target_mean_mse += [mean_squared_error(np.array(merge_df['mean_score']), np.array(merge_df['tmscore']))]
+            target_median_mse += [mean_squared_error(np.array(merge_df['median_score']), np.array(merge_df['tmscore']))]
+
+        self.log('train_target_mean_mse', np.mean(np.array(target_mean_mse)), on_epoch=True)
+        self.log('train_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
+
+    def on_validation_epoch_end(self):
+        target_pred_subgraph_scores = {}
+        for subgraph_paths, pred_scores in zip(self.valid_step_data_paths, self.valid_step_outputs):
+            pred_scores = pred_scores.cpu().data.numpy().squeeze(1)
+            start_idx = 0
+            for subgraph_path in subgraph_paths:
+                subgraph_filename = subgraph_path.split('/')[-1]
+                targetname = subgraph_filename.split('_')[0]
+                subgraph_name = subgraph_filename.split('_', maxsplit=1)[1]
+                    
+                if targetname not in target_pred_subgraph_scores:
+                    target_pred_subgraph_scores[targetname] = {}
+
+                subgraph_df = pd.read_csv(f"{self.datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
+                for i, modelname in enumerate(subgraph_df.columns):
+                    if modelname not in target_pred_subgraph_scores[targetname]:
+                        target_pred_subgraph_scores[targetname][modelname] = []
+                    target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
+                start_idx += len(subgraph_df.columns)
+
+        self.valid_step_outputs.clear()  # free memory
+        self.valid_step_data_paths.clear()  # free memory
+        if len(self.valid_targets) != len(target_pred_subgraph_scores):
+            return
+
+        target_mean_mse, target_median_mse = [], []
+        for target in self.valid_targets:    
+            ensemble_mean_scores, ensemble_median_scores = [], []
+            for modelname in target_pred_subgraph_scores[target]:
+                ensemble_mean_scores += [np.mean(np.array(target_pred_subgraph_scores[target][modelname]))]
+                ensemble_median_scores += [np.median(np.array(target_pred_subgraph_scores[target][modelname]))]
+            pred_df = pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'mean_score': ensemble_mean_scores, 
+                                    'median_score': ensemble_median_scores})
+            native_df = pd.read_csv(self.labeldir + '/' + target + '.csv')
+            merge_df = pred_df.merge(native_df, on=f'model', how="inner")
+            target_mean_mse += [mean_squared_error(np.array(merge_df['mean_score']), np.array(merge_df['tmscore']))]
+            target_median_mse += [mean_squared_error(np.array(merge_df['median_score']), np.array(merge_df['tmscore']))]
+
+        self.log('val_target_mean_mse', np.mean(np.array(target_mean_mse)), on_epoch=True)
+        self.log('val_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
 
     # def test_step(self, batch, batch_idx):
     #     data, target = batch

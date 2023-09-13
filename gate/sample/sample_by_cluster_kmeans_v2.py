@@ -10,6 +10,9 @@ def sample_models_by_kmeans(indir, sample_number_per_target, outdir_base, minclu
 
     for pairwise_file in os.listdir(indir):
         
+        if pairwise_file.find('.csv') < 0:
+            continue
+
         targetname = pairwise_file.replace('.csv', '')
 
         outdir = f"{outdir_base}/{targetname}"

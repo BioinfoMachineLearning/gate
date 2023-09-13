@@ -10,7 +10,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'pairwise_aligned', 'pairwise_qsscore', 'voro_scores', 'enqa']
+    QA_scores = ['alphafold', 'cdpred', 'dproqa', 'pairwise', 'pairwise_aligned', 'pairwise_qsscore', 'voro_scores', 'enqa']
     targets = sorted(os.listdir(args.indir + '/' + QA_scores[0]))
 
     for target in targets:
@@ -35,7 +35,7 @@ if __name__ == '__main__':
                     plddt_norm = df.loc[i, 'plddt_norm']
                     af_plddt_avg_dict[model] = plddt
                     af_plddt_avg_norm_dict[model] = plddt_norm
-            elif QA_score == "contact":
+            elif QA_score == "cdpred":
                 for i in range(len(df)):
                     model = df.loc[i, 'model']
                     icps = df.loc[i, 'icps']

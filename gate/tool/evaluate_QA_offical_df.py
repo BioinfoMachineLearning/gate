@@ -6,7 +6,7 @@ from multiprocessing import Pool
 from tqdm import tqdm
 import random
 import numpy as np
-from scipy.stats.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 import pandas as pd
 from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import MinMaxScaler
@@ -63,6 +63,7 @@ if __name__ == '__main__':
     for group_id in group_ids:
         # print(group_id)
         corrs = []
+        spear_corrs = []
         best_tmscores = []
         losses = []
         max_tmscores = []
@@ -86,6 +87,7 @@ if __name__ == '__main__':
             # print(pred_df)
             if pred_df is None or len(pred_df) == 0:
                 corrs += ["0"]
+                spear_corrs += ["0"]
                 losses += [str(np.max(np.array(true_tmscores)))]
                 best_tmscores += [np.max(np.array(true_tmscores))]
                 max_tmscores += ["0"]
@@ -112,6 +114,7 @@ if __name__ == '__main__':
 
             if len(scores_filt) == 0:
                 corrs += ["0"]
+                spear_corrs += ["0"]
                 losses += [str(np.max(np.array(true_tmscores)))]
                 best_tmscores += [np.max(np.array(true_tmscores))]
                 max_tmscores += ["0"]
@@ -121,6 +124,7 @@ if __name__ == '__main__':
             # print(len(scores_dict))
             # print(len(scores_true))
             corr = pearsonr(np.array(scores_filt), np.array(scores_true))[0]
+            spear_corr = spearmanr(np.array(scores_filt), np.array(scores_true)).statistic
 
             scaler = MinMaxScaler()
             if np.max(np.array(scores_filt)) > 1:
@@ -133,6 +137,7 @@ if __name__ == '__main__':
             top1_model = pred_df.loc[0, 'model']
             if top1_model not in scores_dict:
                 corrs += ["0"]
+                spear_corrs += ["0"]
                 losses += [str(np.max(np.array(true_tmscores)))]
                 best_tmscores += [np.max(np.array(true_tmscores))]
                 max_tmscores += ["0"]
@@ -147,12 +152,13 @@ if __name__ == '__main__':
             best_top1_tmscore = float(scores_dict[top1_model])
             loss = float(np.max(np.array(true_tmscores))) - best_top1_tmscore
             corrs += [str(corr)]
+            spear_corrs += [str(spear_corr)]
             losses += [str(loss)]
             best_tmscores += [str(float(np.max(np.array(scores_true))))]
             max_tmscores += [str(best_top1_tmscore)]
             MAEs += [str(mae)]
 
-        group_res[group_id] = dict(corrs=corrs, losses=losses, 
+        group_res[group_id] = dict(corrs=corrs, spear_corrs=spear_corrs, losses=losses, 
                                    best_tmscores=best_tmscores, 
                                    select_tmscores=max_tmscores, MAEs=MAEs)
 
@@ -166,6 +172,7 @@ if __name__ == '__main__':
         contents = []
         for group_id in group_res:
             contents += [group_res[group_id]['corrs'][i]]
+            contents += [group_res[group_id]['spear_corrs'][i]]
             contents += [group_res[group_id]['losses'][i]]
             contents += [group_res[group_id]['MAEs'][i]]
         print(' '.join(contents))

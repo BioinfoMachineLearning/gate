@@ -111,6 +111,9 @@ def cli_main():
             ckptname = ckptfile
             break
 
+        print(ckptfile)
+        continue
+        
         lines = open(folddir + '/targets.list').readlines()
 
         targets_test_in_fold = lines[2].split()
@@ -182,13 +185,14 @@ def cli_main():
 
         ckpt_path = ckpt_dir + '/' + ckptname
         print(ckpt_path)
+        
         model = model.load_from_checkpoint(ckpt_path, loss_function=loss_function)
 
         model = model.to(device)
 
         model.eval()
 
-        pred_subgraph_scores = {}
+        target_pred_subgraph_scores = {}
         for idx, (batch_graphs, labels, data_paths) in enumerate(test_loader):
             #print(data_paths)
             #subgraph = batch_graphs[0]
@@ -205,25 +209,26 @@ def cli_main():
                 subgraph_filename = subgraph_path.split('/')[-1]
                 targetname = subgraph_filename.split('_')[0]
                 subgraph_name = subgraph_filename.split('_', maxsplit=1)[1]
-    
+                
+                if targetname not in target_pred_subgraph_scores:
+                    target_pred_subgraph_scores[targetname] = {}
+
                 subgraph_df = pd.read_csv(f"{args.datadir}/{targetname}/{subgraph_name.replace('.dgl', '.csv')}", index_col=[0])
                 for i, modelname in enumerate(subgraph_df.columns):
-                    if modelname not in pred_subgraph_scores:
-                        pred_subgraph_scores[modelname] = []
-                    pred_subgraph_scores[modelname] += [pred_scores[start_idx + i]]
+                    if modelname not in target_pred_subgraph_scores[targetname]:
+                        target_pred_subgraph_scores[targetname][modelname] = []
+                    target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
                 start_idx += len(subgraph_df.columns)
 
         for target in targets_test_in_fold:
-            models_for_target = [modelname for modelname in pred_subgraph_scores if modelname.split('TS')[0] == target.replace('o','')]    
-            # print(models_for_target)
             ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
-            for modelname in models_for_target:
-                mean_score = np.mean(np.array(pred_subgraph_scores[modelname]))
+            for modelname in target_pred_subgraph_scores[target]:
+                mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
                 ensemble_scores += [mean_score]
-                ensemble_count += [len(pred_subgraph_scores[modelname])]
-                std += [np.std(np.array(pred_subgraph_scores[modelname]))]
-                normalized_std += [np.std(np.array(pred_subgraph_scores[modelname])) / mean_score]
-            pd.DataFrame({'model': models_for_target, 'score': ensemble_scores, 
+                ensemble_count += [len(target_pred_subgraph_scores[target][modelname])]
+                std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]
+                normalized_std += [np.std(np.array(target_pred_subgraph_scores[target][modelname])) / mean_score]
+            pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'score': ensemble_scores, 
                           'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(folddir + '/' + target + '.csv')
 
     
