@@ -187,14 +187,14 @@ def cli_main():
                                         train_loader = DataLoader(train_data,
                                                                 batch_size=batch_size,
                                                                 num_workers=64,
-                                                                pin_memory=False,
+                                                                pin_memory=True,
                                                                 collate_fn=collate,
                                                                 shuffle=True)
                                         
                                         val_loader = DataLoader(val_data,
                                                                 batch_size=batch_size,
                                                                 num_workers=64,
-                                                                pin_memory=False,
+                                                                pin_memory=True,
                                                                 collate_fn=collate,
                                                                 shuffle=False)
 
