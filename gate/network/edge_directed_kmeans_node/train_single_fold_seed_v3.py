@@ -2,7 +2,7 @@
 @ Description: Protein to DGL graph with node and edge features
 """
 
-import os, copy
+import os, copy, time
 import dgl
 import torch
 import numpy as np
@@ -20,7 +20,7 @@ import wandb
 import scipy.sparse as sp
 import torchmetrics
 import json
-
+import multiprocessing
 
 os.environ["WANDB__SERVICE_WAIT"] = "3600"
 os.environ["WANDB_API_KEY"] = "e84c57dee287170f97801b73a63280b155507e00"
@@ -28,6 +28,13 @@ torch.set_printoptions(profile="full")
 
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
+
+def load_dgl_graph_and_label(inparams):
+    index, dgl_file_path, label_file_path = inparams
+    # Load the DGL graph from the file
+    g, tmp = dgl.data.utils.load_graphs(dgl_file_path)
+    label = np.load(label_file_path)
+    return index, dgl_file_path, g, label
 
 class DGLData(Dataset):
     """Data loader"""
@@ -49,17 +56,58 @@ class DGLData(Dataset):
         return self.data[idx], self.node_label[idx], self.data_list[idx]#, self.edge_label[idx]
 
     def _prepare(self):
+
+        load_file_list = []
+        load_index = 0
         for target in self.target_list:
             target_dgl_folder = self.dgl_folder + '/' + target
             target_label_folder = self.label_folder + '/' + target
-
             for dgl_file in os.listdir(target_dgl_folder):
-                g, tmp = dgl.data.utils.load_graphs(target_dgl_folder + '/' + dgl_file)
-                self.data.append(g[0])
-                self.node_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')))
-                # self.edge_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_edge.npy')))
-                self.data_list.append(target_dgl_folder + '/' + dgl_file)
+                label_file = target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')
+                load_file_list.append([load_index, target_dgl_folder + '/' + dgl_file, label_file])
+                load_index += 1
 
+        # Create a pool of worker processes
+        pool = multiprocessing.Pool(processes=1)
+
+        load_file_threshold = 1
+
+        self.data_list = [None] * (load_index-1)
+        self.data = [None] * (load_index-1)
+        self.node_label = [None] * (load_index-1)
+
+        i = 0
+        while i < load_index:
+            if i + load_file_threshold >= load_index:
+                batch_load_file_list = load_file_list[i:]
+            else:
+                batch_load_file_list = load_file_list[i:i+load_file_threshold]
+
+            # Use the 'load_dgl_graph' function to load the graphs in parallel
+            loaded_datas = pool.map(load_dgl_graph_and_label, load_file_list)
+            
+            # Close the pool of worker processes
+            pool.close()
+            pool.join()
+
+            for loaded_data in loaded_datas:
+                index, dgl_file_path, g, label = loaded_data
+                self.data[index] = g[0]
+                self.node_label[index] = label
+                self.data_list[index] = dgl_file_path
+
+            i += load_file_threshold
+    # def _prepare(self):
+    #     for target in self.target_list:
+    #         target_dgl_folder = self.dgl_folder + '/' + target
+    #         target_label_folder = self.label_folder + '/' + target
+
+    #         for dgl_file in os.listdir(target_dgl_folder):
+    #             g, tmp = dgl.data.utils.load_graphs(target_dgl_folder + '/' + dgl_file)
+    #             self.data.append(g[0])
+    #             self.node_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')))
+    #             # self.edge_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_edge.npy')))
+    #             self.data_list.append(target_dgl_folder + '/' + dgl_file)
 
 def collate(samples):
     """Customer collate function"""
@@ -135,9 +183,14 @@ def cli_main():
 
     batch_size = 512
 
+    start = time.time()
     train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
     val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
     test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+    end = time.time()
+    
+    print(f"Loading time: {end-start}s")
+    return
 
     random_seed = 3407
 
