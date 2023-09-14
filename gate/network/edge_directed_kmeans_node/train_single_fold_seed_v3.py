@@ -21,9 +21,13 @@ import scipy.sparse as sp
 import torchmetrics
 import json
 
+
 os.environ["WANDB__SERVICE_WAIT"] = "3600"
 os.environ["WANDB_API_KEY"] = "e84c57dee287170f97801b73a63280b155507e00"
 torch.set_printoptions(profile="full")
+
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 class DGLData(Dataset):
     """Data loader"""
@@ -75,6 +79,22 @@ def collate(samples):
     #         batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
 
     return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), data_paths# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
+
+def read_subgraph_columns(datadir):
+    subgraph_columns_dict = {}
+    for targetname in os.listdir(datadir):
+        for subgraph in os.listdir(datadir + '/' + targetname):
+            df = pd.read_csv(f"{datadir}/{targetname}/{subgraph}", index_col=[0])
+            subgraph_columns_dict[f"{targetname}_{subgraph.replace('.csv', '')}"] = df.columns
+    return subgraph_columns_dict
+
+def read_native_dfs(labeldir):
+    native_dfs_dict = {}
+    for infile in os.listdir(labeldir):
+        targetname = infile.replace('.csv', '')
+        df = pd.read_csv(labeldir + '/' + infile)
+        native_dfs_dict[targetname] = df
+    return native_dfs_dict
 
 
 def cli_main():
@@ -131,6 +151,9 @@ def cli_main():
     ckpt_root_dir = workdir + '/ckpt/'
     os.makedirs(ckpt_root_dir, exist_ok=True)
 
+    subgraph_columns_dict = read_subgraph_columns(args.datadir)
+    native_dfs_dict = read_native_dfs(args.labeldir)
+
     node_input_dim = 22 # 20 #18
     edge_input_dim = 5 # 4 #3
     residual = True
@@ -164,14 +187,14 @@ def cli_main():
                                         train_loader = DataLoader(train_data,
                                                                 batch_size=batch_size,
                                                                 num_workers=64,
-                                                                pin_memory=True,
+                                                                pin_memory=False,
                                                                 collate_fn=collate,
                                                                 shuffle=True)
                                         
                                         val_loader = DataLoader(val_data,
                                                                 batch_size=batch_size,
                                                                 num_workers=64,
-                                                                pin_memory=True,
+                                                                pin_memory=False,
                                                                 collate_fn=collate,
                                                                 shuffle=False)
 
@@ -231,8 +254,8 @@ def cli_main():
                                                     weight_decay=weight_decay,
                                                     train_targets=targets_train_in_fold,
                                                     valid_targets=targets_val_in_fold,
-                                                    datadir=args.datadir,
-                                                    labeldir=args.labeldir)
+                                                    subgraph_columns_dict=subgraph_columns_dict,
+                                                    native_dfs_dict=native_dfs_dict)
 
                                         trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger, deterministic=True)
 
