@@ -128,20 +128,23 @@ def collate(samples):
 
     return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), data_paths# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
 
-def read_subgraph_columns(datadir):
+def read_subgraph_columns(datadir, targets):
     subgraph_columns_dict = {}
     for targetname in os.listdir(datadir):
+        if targetname not in targets:
+            continue
         for subgraph in os.listdir(datadir + '/' + targetname):
             df = pd.read_csv(f"{datadir}/{targetname}/{subgraph}", index_col=[0])
             subgraph_columns_dict[f"{targetname}_{subgraph.replace('.csv', '')}"] = df.columns
     return subgraph_columns_dict
 
-def read_native_dfs(labeldir):
+def read_native_dfs(labeldir, targets):
     native_dfs_dict = {}
     for infile in os.listdir(labeldir):
         targetname = infile.replace('.csv', '')
-        df = pd.read_csv(labeldir + '/' + infile)
-        native_dfs_dict[targetname] = df
+        if targetname in targets:
+            df = pd.read_csv(labeldir + '/' + infile)
+            native_dfs_dict[targetname] = df
     return native_dfs_dict
 
 
@@ -155,6 +158,8 @@ def cli_main():
     parser.add_argument('--project', type=str, required=True)
     parser.add_argument('--dbdir', type=str, required=True)
     parser.add_argument('--labeldir', type=str, required=True)
+    parser.add_argument('--log_train_mse', default=False, type=lambda x: (str(x).lower() == 'true'))
+    parser.add_argument('--log_val_mse', default=False, type=lambda x: (str(x).lower() == 'true'))
 
     args = parser.parse_args()
 
@@ -186,7 +191,16 @@ def cli_main():
     start = time.time()
     train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
     val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
-    test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+    # test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+
+    load_targets = []
+    if args.log_train_mse:
+        load_targets += targets_train_in_fold
+    if args.log_val_mse:
+        load_targets += targets_val_in_fold
+
+    subgraph_columns_dict = read_subgraph_columns(args.datadir, load_targets)
+    native_dfs_dict = read_native_dfs(args.labeldir, load_targets)
     end = time.time()
     
     print(f"Loading time: {end-start}s")
@@ -202,9 +216,6 @@ def cli_main():
 
     ckpt_root_dir = workdir + '/ckpt/'
     os.makedirs(ckpt_root_dir, exist_ok=True)
-
-    subgraph_columns_dict = read_subgraph_columns(args.datadir)
-    native_dfs_dict = read_native_dfs(args.labeldir)
 
     node_input_dim = 22 # 20 #18
     edge_input_dim = 5 # 4 #3
@@ -307,7 +318,9 @@ def cli_main():
                                                     train_targets=targets_train_in_fold,
                                                     valid_targets=targets_val_in_fold,
                                                     subgraph_columns_dict=subgraph_columns_dict,
-                                                    native_dfs_dict=native_dfs_dict)
+                                                    native_dfs_dict=native_dfs_dict,
+                                                    log_train_mse=args.log_train_mse,
+                                                    log_val_mse=args.log_val_mse)
 
                                         trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger, deterministic=True)
 

@@ -87,7 +87,8 @@ class Gate(L.LightningModule):
                  learning_rate,
                  weight_decay,
                  train_targets, valid_targets, 
-                 subgraph_columns_dict, native_dfs_dict):
+                 subgraph_columns_dict, native_dfs_dict,
+                 log_train_mse, log_val_mse):
         super().__init__()
 
         self.node_input_dim = node_input_dim
@@ -135,6 +136,8 @@ class Gate(L.LightningModule):
         self.valid_targets = valid_targets
         self.subgraph_columns_dict = subgraph_columns_dict
         self.native_dfs_dict = native_dfs_dict
+        self.log_train_mse = log_train_mse
+        self.log_val_mse = log_val_mse
 
         self.save_hyperparameters(ignore=['loss_function', 'training_step_data_paths',
                                           'training_step_outputs', 'valid_step_data_paths',
@@ -192,8 +195,10 @@ class Gate(L.LightningModule):
         self.log('train_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('train_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
-        self.training_step_data_paths.append(data_paths)
-        self.training_step_outputs.append(node_out.cpu().data.numpy())
+        if self.log_train_mse:
+            self.training_step_data_paths.append(data_paths)
+            self.training_step_outputs.append(node_out.cpu().data.numpy())
+        
         return node_loss
     
     def validation_step(self, batch, batch_idx):
@@ -210,11 +215,18 @@ class Gate(L.LightningModule):
         self.log('valid_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         # self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
-        self.valid_step_data_paths.append(data_paths)
-        self.valid_step_outputs.append(node_out.cpu().data.numpy())
+
+        if self.log_val_mse:
+            self.valid_step_data_paths.append(data_paths)
+            self.valid_step_outputs.append(node_out.cpu().data.numpy())
+
         return node_loss
 
     def on_train_epoch_end(self):
+
+        if not self.log_train_mse:
+            return
+
         start = time.time()
         target_pred_subgraph_scores = {}
         for subgraph_paths, pred_scores in zip(self.training_step_data_paths, self.training_step_outputs):
@@ -259,6 +271,10 @@ class Gate(L.LightningModule):
         self.log('train_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
 
     def on_validation_epoch_end(self):
+
+        if not self.log_val_mse:
+            return
+
         start = time.time()
         target_pred_subgraph_scores = {}
         for subgraph_paths, pred_scores in zip(self.valid_step_data_paths, self.valid_step_outputs):
