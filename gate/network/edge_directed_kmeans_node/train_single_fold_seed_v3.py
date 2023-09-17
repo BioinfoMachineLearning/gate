@@ -160,6 +160,7 @@ def cli_main():
     parser.add_argument('--labeldir', type=str, required=True)
     parser.add_argument('--log_train_mse', default=False, type=lambda x: (str(x).lower() == 'true'))
     parser.add_argument('--log_val_mse', default=False, type=lambda x: (str(x).lower() == 'true'))
+    parser.add_argument('--batch_size', default=512, type=int)
 
     args = parser.parse_args()
 
@@ -186,7 +187,7 @@ def cli_main():
     print(f"Test targets:")
     print(targets_test_in_fold)
 
-    batch_size = 512
+    batch_size = args.batch_size
 
     start = time.time()
     train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
@@ -249,14 +250,14 @@ def cli_main():
                                 
                                         train_loader = DataLoader(train_data,
                                                                 batch_size=batch_size,
-                                                                num_workers=64,
+                                                                num_workers=16,
                                                                 pin_memory=True,
                                                                 collate_fn=collate,
                                                                 shuffle=True)
                                         
                                         val_loader = DataLoader(val_data,
                                                                 batch_size=batch_size,
-                                                                num_workers=64,
+                                                                num_workers=16,
                                                                 pin_memory=True,
                                                                 collate_fn=collate,
                                                                 shuffle=False)
