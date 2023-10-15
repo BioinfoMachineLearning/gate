@@ -8,7 +8,7 @@ import random
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
 import pandas as pd
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 
 def read_qa_txt_as_df(targetname, infile):
@@ -50,7 +50,8 @@ if __name__ == '__main__':
     parser.add_argument('--nativedir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--field', type=str, required=False)
-
+    parser.add_argument('--ascending', type=bool, default=False, required=False)
+    
     args = parser.parse_args()
 
     scorefile = args.indir + '/' + os.listdir(args.indir)[0]
@@ -67,7 +68,7 @@ if __name__ == '__main__':
         best_tmscores = []
         losses = []
         max_tmscores = []
-        MAEs = []
+        MSEs = []
         for target in sorted(os.listdir(args.nativedir)):
             native_df = pd.read_csv(args.nativedir + '/' + target)
             # print(native_df)
@@ -91,10 +92,10 @@ if __name__ == '__main__':
                 losses += [str(np.max(np.array(true_tmscores)))]
                 best_tmscores += [np.max(np.array(true_tmscores))]
                 max_tmscores += ["0"]
-                MAEs += ["-1"]
+                MSEs += ["-1"]
                 continue
 
-            pred_df = pred_df.sort_values(by=[group_id], ascending=False)
+            pred_df = pred_df.sort_values(by=[group_id], ascending=args.ascending)
             pred_df.reset_index(inplace=True)
             # print(pred_df)
 
@@ -118,7 +119,7 @@ if __name__ == '__main__':
                 losses += [str(np.max(np.array(true_tmscores)))]
                 best_tmscores += [np.max(np.array(true_tmscores))]
                 max_tmscores += ["0"]
-                MAEs += ["-1"]
+                MSEs += ["-1"]
                 continue
 
             # print(len(scores_dict))
@@ -129,9 +130,9 @@ if __name__ == '__main__':
             scaler = MinMaxScaler()
             if np.max(np.array(scores_filt)) > 1:
                 scores_filt_norm = scaler.fit_transform(np.array(scores_filt).reshape(-1, 1))
-                mae = mean_absolute_error(scores_true, scores_filt_norm.reshape(-1))
+                mse = mean_squared_error(scores_true, scores_filt_norm.reshape(-1))
             else:    
-                mae = mean_absolute_error(scores_true, scores_filt)
+                mse = mean_squared_error(scores_true, scores_filt)
             # print(corr)
 
             top1_model = pred_df.loc[0, 'model']
@@ -141,7 +142,7 @@ if __name__ == '__main__':
                 losses += [str(np.max(np.array(true_tmscores)))]
                 best_tmscores += [np.max(np.array(true_tmscores))]
                 max_tmscores += ["0"]
-                MAEs += ["-1"]
+                MSEs += ["-1"]
                 continue
                 # raise Exception(f"Cannot find the {scorefile} for {top1_model}!")
             # print(top1_model)
@@ -156,11 +157,11 @@ if __name__ == '__main__':
             losses += [str(loss)]
             best_tmscores += [str(float(np.max(np.array(scores_true))))]
             max_tmscores += [str(best_top1_tmscore)]
-            MAEs += [str(mae)]
+            MSEs += [str(mse)]
 
         group_res[group_id] = dict(corrs=corrs, spear_corrs=spear_corrs, losses=losses, 
                                    best_tmscores=best_tmscores, 
-                                   select_tmscores=max_tmscores, MAEs=MAEs)
+                                   select_tmscores=max_tmscores, MSEs=MSEs)
 
     group_ids = [key for key in group_res]
     print('  '.join(group_ids))
@@ -174,7 +175,7 @@ if __name__ == '__main__':
             contents += [group_res[group_id]['corrs'][i]]
             contents += [group_res[group_id]['spear_corrs'][i]]
             contents += [group_res[group_id]['losses'][i]]
-            contents += [group_res[group_id]['MAEs'][i]]
+            contents += [group_res[group_id]['MSEs'][i]]
         print(' '.join(contents))
 
 

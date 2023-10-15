@@ -60,12 +60,14 @@ class MLP(nn.Module):
             self.layers.add_module(f'BN {i}', nn.BatchNorm1d(input_dim // 2 ** (i + 1)))
             self.layers.add_module(f'relu {i}', nn.LeakyReLU())
             self.layers.add_module(f'dp {i}', nn.Dropout(p=dp_rate))
-        self.final_layer = nn.Linear(input_dim // 2 ** L, output_dim, bias=True)
+        # self.final_layer1 = nn.Linear(input_dim // 2 ** L, output_dim, bias=True)
+        self.final_layer2 = nn.Linear(input_dim // 2 ** L, output_dim, bias=True)
 
     def forward(self, x):
         x = self.layers(x)
-        y = torch.sigmoid(self.final_layer(x))  # dockq_score
-        return y
+        # y1 = torch.sigmoid(self.final_layer1(x))  # dockq_score
+        y2 = self.final_layer2(x)
+        return y2
 
 
 class Gate(L.LightningModule):
@@ -83,9 +85,11 @@ class Gate(L.LightningModule):
                  mlp_dp_rate,
                  check_pt_dir,
                  batch_size,
-                 loss_function,
+                 loss_function_node_score,
+                 loss_function_node_prob,
                  learning_rate,
                  weight_decay,
+                 ce_loss_weight,
                  train_targets=[], valid_targets=[], 
                  subgraph_columns_dict={}, native_dfs_dict={},
                  log_train_mse=False, log_val_mse=False):
@@ -108,8 +112,7 @@ class Gate(L.LightningModule):
         # self.criterion = torchmetrics.MeanSquaredError()
         # self.criterion_node = torch.nn.BCELoss()
         # self.criterion_edge = torch.nn.BCELoss()
-        self.criterion_node = loss_function
-
+       
         self.resnet_embedding = ResNetEmbedding(self.node_input_dim,
                                                 self.edge_input_dim,
                                                 self.hidden_dim)
@@ -129,7 +132,8 @@ class Gate(L.LightningModule):
         self.node_MLP_layer = MLP(input_dim=self.hidden_dim, output_dim=1, dp_rate=self.mlp_dp_rate)
 
         # self.edge_MLP_layer = MLP(input_dim=self.hidden_dim, output_dim=1, dp_rate=self.mlp_dp_rate)
-
+        self.criterion_node_score = loss_function_node_score
+        self.criterion_node_prob = loss_function_node_prob
         self.training_step_data_paths,  self.training_step_outputs = [], []
         self.valid_step_data_paths, self.valid_step_outputs = [], []
         self.train_targets = train_targets
@@ -138,8 +142,9 @@ class Gate(L.LightningModule):
         self.native_dfs_dict = native_dfs_dict
         self.log_train_mse = log_train_mse
         self.log_val_mse = log_val_mse
+        self.ce_loss_weight = ce_loss_weight
 
-        self.save_hyperparameters(ignore=['loss_function', 'training_step_data_paths',
+        self.save_hyperparameters(ignore=['loss_function_node_score', 'loss_function_node_prob', 'training_step_data_paths',
                                           'training_step_outputs', 'valid_step_data_paths',
                                           'valid_step_outputs', 'train_targets', 'valid_targets',
                                           'subgraph_columns_dict', 'native_dfs_dict'])
@@ -178,43 +183,76 @@ class Gate(L.LightningModule):
     def configure_callbacks(self):
         checkpoint_callback = L.pytorch.callbacks.ModelCheckpoint(monitor="valid_loss", dirpath=self.check_pt_dir, filename='{valid_loss:.5f}_{epoch}')
         early_stop = L.pytorch.callbacks.EarlyStopping(monitor="valid_loss", mode="min", patience=15)
-        return [checkpoint_callback, early_stop]
+        return [checkpoint_callback] #, early_stop]
 
     def training_step(self, batch, batch_idx):
-        data, node_label, data_paths = batch
+        data, node_label, data_paths, node_counts = batch
         # print(data_paths)
         # print(data.ndata['f'][0])
-        node_out = self(data, data.ndata['f'], data.edata['f'])
+        node_prob = self(data, data.ndata['f'], data.edata['f'])
+        # print(node_prob)
         # print(node_out)
 
-        node_loss = self.criterion_node(node_out, node_label)
-        # print(node_loss)
-        # edge_loss = self.criterion_edge(edge_out, edge_label)
-        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
+        # node_score_loss = self.criterion_node_score(node_out, node_label)
+
+        node_ce_loss = self.cal_ce_loss_for_batched_graphs(node_prob, node_label, node_counts)
+
+        # node_loss = node_score_loss + self.ce_loss_weight * node_ce_loss
+
+        # node_loss = node_ce_loss + node_score_loss / (node_score_loss/node_ce_loss).detach()
+
+        node_loss = node_ce_loss
 
         self.log('train_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('train_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('train_node_score_loss', node_score_loss, on_epoch=True, batch_size=self.batch_size)
+        self.log('train_node_class_loss', node_ce_loss, on_epoch=True, batch_size=self.batch_size)
+
         if self.log_train_mse:
             self.training_step_data_paths.append(data_paths)
             self.training_step_outputs.append(node_out.cpu().data.numpy())
         
         return node_loss
-    
-    def validation_step(self, batch, batch_idx):
-        data, node_label, data_paths = batch
-        # print(data_paths)
-        # print(data.ndata['f'])
-        node_out = self(data, data.ndata['f'], data.edata['f'])
-        # print(node_out)
 
-        node_loss = self.criterion_node(node_out, node_label)
-        # edge_loss = self.criterion_edge(edge_out, edge_label)
-        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
+    def cal_ce_loss_for_batched_graphs(self, output, true_scores, node_counts):
+
+        ce_loss = 0.0
+        start_node_idx = 0
+        for node_count in node_counts:
+            # print(start_node_idx)
+            # print(node_count)
+            node_prob = output[start_node_idx:start_node_idx+node_count]
+            
+            node_prob = torch.squeeze(node_prob, dim=1)
+            print(node_prob)
+            # print(node_prob.shape)
+            node_class = torch.argmax(true_scores[start_node_idx:start_node_idx+node_count], dim=0)
+            print(node_class[0])
+            ce_loss_in_sub_graph = self.criterion_node_prob(node_prob, node_class[0])
+            print(ce_loss_in_sub_graph)
+            ce_loss += ce_loss_in_sub_graph
+            start_node_idx += node_count
+
+        return ce_loss / len(node_counts)
+
+    def validation_step(self, batch, batch_idx):
         
+        data, node_label, data_paths, node_counts = batch
+
+        node_prob = self(data, data.ndata['f'], data.edata['f'])
+        # print(node_prob)
+        # node_score_loss = self.criterion_node_score(node_out, node_label)
+        
+        node_ce_loss = self.cal_ce_loss_for_batched_graphs(node_prob, node_label, node_counts)
+
+        # node_loss = node_score_loss + self.ce_loss_weight * node_ce_loss
+
+        # node_loss = node_ce_loss + node_score_loss / (node_score_loss/node_ce_loss).detach()
+
+        node_loss = node_ce_loss
+
         self.log('valid_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('valid_node_score_loss', node_score_loss, on_epoch=True, batch_size=self.batch_size)
+        self.log('valid_node_class_loss', node_ce_loss, on_epoch=True, batch_size=self.batch_size)
 
         if self.log_val_mse:
             self.valid_step_data_paths.append(data_paths)
@@ -266,7 +304,7 @@ class Gate(L.LightningModule):
             target_median_mse += [mean_squared_error(np.array(merge_df['median_score']), np.array(merge_df['tmscore']))]
 
         end = time.time()
-        self.log('train_target_cal_time(s)', end - start, on_epoch=True)
+        # self.log('train_target_cal_time(s)', end - start, on_epoch=True)
         self.log('train_target_mean_mse', np.mean(np.array(target_mean_mse)), on_epoch=True)
         self.log('train_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
 

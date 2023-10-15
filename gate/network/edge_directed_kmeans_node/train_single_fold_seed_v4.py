@@ -10,7 +10,7 @@ from sklearn.preprocessing import MinMaxScaler
 from typing import List, Union
 from joblib import Parallel, delayed
 import pandas as pd
-from graph_transformer_v2 import Gate
+from graph_transformer_v3 import Gate
 import lightning as L
 from torch.utils.data import Dataset
 from argparse import ArgumentParser
@@ -112,6 +112,10 @@ class DGLData(Dataset):
 def collate(samples):
     """Customer collate function"""
     graphs, node_labels, data_paths = zip(*samples)
+    node_counts = []
+    for graph in graphs:
+        node_counts += [graph.number_of_nodes()]
+    # print(node_counts)
     batched_graphs = dgl.batch(graphs)
     batch_node_labels, batch_edge_labels = None, None
     for node_label in node_labels:
@@ -126,7 +130,7 @@ def collate(samples):
     #     else:
     #         batch_edge_labels = np.concatenate((batch_edge_labels, edge_label), axis=None)
 
-    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), data_paths# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
+    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), data_paths, node_counts# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
 
 def read_subgraph_columns(datadir, targets):
     subgraph_columns_dict = {}
@@ -221,14 +225,14 @@ def cli_main():
     node_input_dim = 22 # 20 #18
     edge_input_dim = 5 # 4 #3
     residual = True
-    for num_heads in [8]:
-        for num_layer in [4, 5, 6]:
-            for dp_rate in [0.2, 0.3, 0.4]:
-                for hidden_dim in [32]:
-                    for mlp_dp_rate in [0.2, 0.3]:
-                        for loss_fun in ['mse']:#, 'binary']:
-                            for lr in [0.0001, 0.0005, 0.001]:
-                                for weight_decay in [0.01, 0.05]:
+    for num_heads in [4]:
+        for num_layer in [1]:
+            for dp_rate in [0.5]:
+                for hidden_dim in [16]:
+                    for mlp_dp_rate in [0.5]:
+                        for ce_loss_weight in [1]:
+                            for lr in [0.001]:
+                                for weight_decay in [0.01]:
                                     for layer_norm in [False, True]:
                                         batch_norm = not layer_norm
                                         experiment_name = f"{node_input_dim}_" \
@@ -241,7 +245,7 @@ def cli_main():
                                                         f"{residual}_" \
                                                         f"{hidden_dim}_" \
                                                         f"{mlp_dp_rate}_" \
-                                                        f"{loss_fun}_" \
+                                                        f"{ce_loss_weight}_" \
                                                         f"{lr}_" \
                                                         f"{weight_decay}"
                                         
@@ -280,19 +284,13 @@ def cli_main():
                                         wandb_logger.experiment.config["residual"] = residual
                                         wandb_logger.experiment.config["hidden_dim"] = hidden_dim
                                         wandb_logger.experiment.config["mlp_dp_rate"] = mlp_dp_rate
-                                        wandb_logger.experiment.config["loss_fun"] = loss_fun
+                                        wandb_logger.experiment.config["ce_loss_weight"] = ce_loss_weight
                                         wandb_logger.experiment.config["lr"] = lr
                                         wandb_logger.experiment.config["weight_decay"] = weight_decay
                                         wandb_logger.experiment.config["fold"] = args.fold
                                         
-                                        loss_function = None
-                                        if loss_fun == 'mse':
-                                            loss_function = torchmetrics.MeanSquaredError()
-                                        elif loss_fun == 'binary':
-                                            loss_function = torch.nn.BCELoss()
-
-                                        if loss_function is None:
-                                            continue
+                                        loss_function_node_score = torchmetrics.MeanSquaredError()
+                                        loss_function_node_prob = torch.nn.CrossEntropyLoss(reduce=False, label_smoothing=0.11)
 
                                         ckpt_dir = ckpt_root_dir + '/' + experiment_name
                                         os.makedirs(ckpt_dir, exist_ok=True)
@@ -313,9 +311,11 @@ def cli_main():
                                                     mlp_dp_rate=mlp_dp_rate,
                                                     check_pt_dir=ckpt_dir,
                                                     batch_size=batch_size,
-                                                    loss_function=loss_function,
+                                                    loss_function_node_score=loss_function_node_score,
+                                                    loss_function_node_prob=loss_function_node_prob,
                                                     learning_rate=lr,
                                                     weight_decay=weight_decay,
+                                                    ce_loss_weight=ce_loss_weight,
                                                     train_targets=targets_train_in_fold,
                                                     valid_targets=targets_val_in_fold,
                                                     subgraph_columns_dict=subgraph_columns_dict,
@@ -323,7 +323,7 @@ def cli_main():
                                                     log_train_mse=args.log_train_mse,
                                                     log_val_mse=args.log_val_mse)
 
-                                        trainer = L.Trainer(accelerator='gpu',max_epochs=200, logger=wandb_logger, deterministic=True)
+                                        trainer = L.Trainer(accelerator='gpu',max_epochs=300, logger=wandb_logger, deterministic=True)
 
                                         wandb_logger.watch(model)
 

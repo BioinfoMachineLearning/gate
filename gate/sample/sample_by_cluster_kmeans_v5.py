@@ -9,7 +9,9 @@ from sklearn.metrics import silhouette_score
 def sample_models_by_kmeans(usaligndir, mmaligndir, qsscoredir, sample_number_per_target, outdir_base):
 
     for pairwise_file in os.listdir(usaligndir):
-        
+        if pairwise_file.find('.csv') < 0:
+            continue
+
         targetname = pairwise_file.replace('.csv', '')
 
         outdir = f"{outdir_base}/{targetname}"

@@ -222,13 +222,13 @@ def cli_main():
     edge_input_dim = 5 # 4 #3
     residual = True
     for num_heads in [8]:
-        for num_layer in [4, 5, 6]:
+        for num_layer in [3]:
             for dp_rate in [0.2, 0.3, 0.4]:
-                for hidden_dim in [32]:
-                    for mlp_dp_rate in [0.2, 0.3]:
+                for hidden_dim in [16, 32]:
+                    for mlp_dp_rate in [0.2, 0.3, 0.4]:
                         for loss_fun in ['mse']:#, 'binary']:
-                            for lr in [0.0001, 0.0005, 0.001]:
-                                for weight_decay in [0.01, 0.05]:
+                            for lr in [0.0001, 0.001]:
+                                for weight_decay in [0.01]:
                                     for layer_norm in [False, True]:
                                         batch_norm = not layer_norm
                                         experiment_name = f"{node_input_dim}_" \
