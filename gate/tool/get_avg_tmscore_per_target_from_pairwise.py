@@ -13,6 +13,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     for result_file in sorted(os.listdir(args.indir)):
+        if result_file.find('.csv') < 0:
+            continue
         targetname = result_file.rstrip('.csv')
         df = pd.read_csv(args.indir + '/' + result_file, index_col=[0])
         max_pairwise_score = np.mean(np.array(df))

@@ -34,7 +34,7 @@ def generate_voro_scores(indir: str,
     
         if not os.path.exists(resultfile):
             raise Exception(f"Cannot find {resultfile}!")
-
+    print(model_csv)
     if not os.path.exists(model_csv):
         return
 
@@ -97,5 +97,5 @@ if __name__ == '__main__':
         generate_voro_scores(indir=args.indir + '/' + target, 
                              outdir=outdir, 
                              targetname=target, 
-                             model_csv=args.interface_dir + '/' + target + '/' + target + '.csv')
+                             model_csv=args.interface_dir + '/' + target + '.csv')
 

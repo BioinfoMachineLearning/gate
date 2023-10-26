@@ -65,6 +65,8 @@ class MMalignResult:
         :param line: Single line of MMalign SUMMARY file
         :type line: :class:`str`
         """
+        print(infile)
+        
         trg_filename, mdl_filename, trg_mapping_str, mdl_mapping_str = "", "", "" , ""
         tmscore = 0
         for line in open(infile):
@@ -80,7 +82,6 @@ class MMalignResult:
           elif line.find('TM-score=') == 0 and line.find('Structure_1') > 0:
             tmscore = float(line.split()[1])
 
-        print(infile)
         split_mdl_mapping_str = mdl_mapping_str.split()[0].split(':')
         split_trg_mapping_str = trg_mapping_str.split()[0].split(':')
         assert(len(split_mdl_mapping_str) > 0 and \
@@ -265,7 +266,8 @@ def main():
                 pdb2 = pdbs[j]
                 if pdb1 == pdb2:
                     continue
-                if os.path.exists(f"{args.outdir}/{target}/{pdb1}_{pdb2}.qsscore"):
+                outfile = f"{args.outdir}/{target}/{pdb1}_{pdb2}.qsscore"
+                if os.path.exists(outfile) and len(open(outfile).readlines()) > 0:
                     continue
                 process_list.append([args.indir + '/' + target, pdb1, pdb2, args.mmalign_dir + '/' + target, args.outdir + '/' + target])
 
@@ -277,6 +279,7 @@ def main():
         pool.close()
         pool.join()
 
+        print("111111111111111111111111")
         scores_dict = {}
         for i in range(len(pdbs)):
             for j in range(len(pdbs)):
@@ -289,6 +292,7 @@ def main():
                     raise Exception(f"cannot find {qsscore_file}")
                 scores_dict[f"{pdb1}_{pdb2}"] = read_qsscore(qsscore_file)
 
+        print("222222222222222222222222")
         data_dict = {}
         for i in range(len(pdbs)):
             pdb1 = pdbs[i]
@@ -297,10 +301,14 @@ def main():
                 pdb2 = pdbs[j]
                 tmscore = 1
                 if pdb1 != pdb2:
+                    if f"{pdb1}_{pdb2}" not in scores_dict:
+                        print(f"Cannot find {pdb1}_{pdb2}!")
+
                     tmscore = scores_dict[f"{pdb1}_{pdb2}"]
                 tmscores += [tmscore]
             data_dict[pdb1] = tmscores
 
+        print("3333333333333333333333333")
         pd.DataFrame(data_dict).to_csv(args.outdir + '/' + target + '.csv')
 
 if __name__ == '__main__':

@@ -95,7 +95,7 @@ def build_model_graph(targetname: str,
     alphafold_plddt_scores = [alphafold_scores_dict[model] for model in models]
     
     alphafold_plddt_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_plddt_scores).reshape(-1, 1))).float()
-
+    
     # b. alphafold confidence score, iptm score, mpDockQ score
     alphafold_scores_file = score_dir + '/af_features/' + targetname + '.csv' 
     alphafold_scores_df = pd.read_csv(alphafold_scores_file)
@@ -326,7 +326,7 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold, 
         for target in targets:
             print(f'Generating label files for {target}')
             os.makedirs(label_folder + '/' + target, exist_ok=True)
-            Parallel(n_jobs=10)(delayed(label_wrapper)(targetname=target, 
+            Parallel(n_jobs=-1)(delayed(label_wrapper)(targetname=target, 
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 

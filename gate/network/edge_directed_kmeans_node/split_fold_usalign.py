@@ -287,7 +287,7 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold, 
         for target in targets:
             print(f'Generating DGL files for {target}')
             os.makedirs(dgl_folder + '/' + target, exist_ok=True)
-            Parallel(n_jobs=-1)(delayed(graph_wrapper)(targetname=target, 
+            Parallel(n_jobs=50)(delayed(graph_wrapper)(targetname=target, 
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
@@ -306,7 +306,7 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold, 
         for target in targets:
             print(f'Generating label files for {target}')
             os.makedirs(label_folder + '/' + target, exist_ok=True)
-            Parallel(n_jobs=10)(delayed(label_wrapper)(targetname=target, 
+            Parallel(n_jobs=50)(delayed(label_wrapper)(targetname=target, 
                                                        subgraph_file=datadir + '/' + target + '/' + subgraph_file, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 

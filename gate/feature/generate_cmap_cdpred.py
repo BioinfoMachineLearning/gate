@@ -91,6 +91,7 @@ def generate_cmap_cdpred(targetname, fasta_path, outdir, pairwise_score_csv, mod
     pool.close()
     pool.join()
 
+    return
     # find the model with the highest pairwise score - average similarity scores by column
     print("Searching the suitable model based on pairwise scores...")
     reference_model_dir = outdir + '/refer_model'
@@ -173,7 +174,7 @@ if __name__ == '__main__':
         pairwise_score_csv = args.pairwise_dir + '/' + targetname + '.csv'
         if not os.path.exists(pairwise_score_csv):
             print(f"Cannot find the pairwise score file: {pairwise_score_csv}")
-            continue
+            # continue
 
         outdir = args.outdir + '/' + targetname
         makedir_if_not_exists(outdir)

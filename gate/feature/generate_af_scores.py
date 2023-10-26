@@ -56,5 +56,5 @@ if __name__ == '__main__':
         generate_af_scores(indir=args.indir + '/' + target, 
                            outdir=outdir, 
                            targetname=target, 
-                           model_csv=args.interface_dir + '/' + target + '/' + target + '.csv')
+                           model_csv=args.interface_dir + '/' + target + '.csv')
 

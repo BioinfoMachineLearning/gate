@@ -224,11 +224,11 @@ def cli_main():
     for num_heads in [8]:
         for num_layer in [3, 4, 5]:
             for dp_rate in [0.2, 0.3, 0.4]:
-                for hidden_dim in [16, 32]:
+                for hidden_dim in [32]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
                         for loss_fun in ['mse']:#, 'binary']:
                             for lr in [0.0001, 0.001]:
-                                for weight_decay in [0.01]:
+                                for weight_decay in [0.01, 0.05]:
                                     for layer_norm in [False, True]:
                                         batch_norm = not layer_norm
                                         experiment_name = f"{node_input_dim}_" \

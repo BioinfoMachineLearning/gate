@@ -7,7 +7,7 @@ from gate.tool.utils import *
 import re, subprocess
 from gate.tool.alignment import parse_fasta
 
-EnQA_dir = '/home/bml_casp15/tools/EnQA/'
+EnQA_dir = '/bmlfast/jl4mc/tools/EnQA/'
 EnQA_program = 'EnQA-MSA.py'
 
 def mergePDB(inputPDB, outputPDB, newStart=1):
@@ -31,6 +31,25 @@ def generate_enqa_scores(indir: str,
                          fasta_path: str, 
                          targetname: str, 
                          model_csv: str):
+                         
+    if not os.path.exists(model_csv):
+        os.chdir(EnQA_dir)
+        
+        modeldir = outdir + '/models'
+        makedir_if_not_exists(modeldir)
+
+        for pdb in sorted(os.listdir(indir)):
+            resultfile = outdir + '/' + pdb + '.npy'
+            if not os.path.exists(resultfile):
+                mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
+                cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}/{pdb}"
+                try:
+                    print(cmd)
+                    os.system(cmd)
+                    os.system(f"cp {outdir}/{pdb}/{pdb}.npy {outdir}/{pdb}.npy")
+                except Exception as e:
+                    print(e)
+        return
 
     model_info_df = pd.read_csv(model_csv)
     model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
@@ -63,7 +82,6 @@ def generate_enqa_scores(indir: str,
                     os.system(f"cp {outdir}/{pdb}/{pdb}.npy {outdir}/{pdb}.npy")
                 except Exception as e:
                     print(e)
-                
             target_dict['model'] += [pdb]
             if os.path.exists(resultfile):
                 plddt_scores = np.load(resultfile)
@@ -78,7 +96,6 @@ def generate_enqa_scores(indir: str,
             else:
                 target_dict['score'] += [0.0]
                 target_dict['score_norm'] += [0.0]
-        
     pd.DataFrame(target_dict).to_csv(outdir + '/' + targetname + '.csv')
     
 
@@ -96,14 +113,14 @@ if __name__ == '__main__':
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
 
-        # if os.path.exists(outdir + '/' + target + '.csv'):
-        #     continue
+        if os.path.exists(outdir + '/' + target + '.csv'):
+            continue
 
         generate_enqa_scores(indir=args.indir + '/' + target,
                              fasta_path=args.fastadir + '/' + target + '.fasta',  
                              outdir=outdir, 
                              targetname=target, 
-                             model_csv=args.interface_dir + '/' + target + '/' + target + '.csv')
+                             model_csv=args.interface_dir + '/' + target + '.csv')
 
 
 

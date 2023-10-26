@@ -132,6 +132,7 @@ class Gate(L.LightningModule):
 
         self.training_step_data_paths,  self.training_step_outputs = [], []
         self.valid_step_data_paths, self.valid_step_outputs = [], []
+        self.test_step_data_paths, self.test_step_outputs = [], []
         self.train_targets = train_targets
         self.valid_targets = valid_targets
         self.subgraph_columns_dict = subgraph_columns_dict
@@ -140,7 +141,7 @@ class Gate(L.LightningModule):
         self.log_val_mse = log_val_mse
 
         self.save_hyperparameters(ignore=['loss_function', 'training_step_data_paths',
-                                          'training_step_outputs', 'valid_step_data_paths',
+                                          'training_step_outputs', 'valid_step_data_paths', 'test_step_data_paths', 'test_step_outputs',
                                           'valid_step_outputs', 'train_targets', 'valid_targets',
                                           'subgraph_columns_dict', 'native_dfs_dict'])
 
@@ -219,6 +220,27 @@ class Gate(L.LightningModule):
         if self.log_val_mse:
             self.valid_step_data_paths.append(data_paths)
             self.valid_step_outputs.append(node_out.cpu().data.numpy())
+
+        return node_loss
+
+    def test_step(self, batch, batch_idx):
+        data, node_label, data_paths = batch
+        # print(data_paths)
+        # print(data.ndata['f'])
+        node_out = self(data, data.ndata['f'], data.edata['f'])
+        # print(node_out)
+
+        node_loss = self.criterion_node(node_out, node_label)
+        # edge_loss = self.criterion_edge(edge_out, edge_label)
+        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
+        
+        self.log('test_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
+        # self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+
+        if self.log_val_mse:
+            self.test_step_data_paths.append(data_paths)
+            self.test_step_outputs.append(node_out.cpu().data.numpy())
 
         return node_loss
 
@@ -333,10 +355,65 @@ class Gate(L.LightningModule):
         self.log('val_target_mean_ranking_loss', np.mean(np.array(target_mean_ranking_loss)), on_epoch=True)
         self.log('val_target_median_ranking_loss', np.mean(np.array(target_median_ranking_loss)), on_epoch=True)
 
-    # def test_step(self, batch, batch_idx):
-    #     data, target = batch
-    #     out = self(data, data.ndata['f'], data.edata['f'])
-    #     # print(out)
-    #     # print(target)
-    #     loss = self.criterion(out, target)
-    #     self.log('test_loss', loss, on_epoch=True)
+    def on_test_epoch_end(self):
+
+        if not self.log_val_mse:
+            return
+
+        start = time.time()
+        target_pred_subgraph_scores = {}
+        for subgraph_paths, pred_scores in zip(self.test_step_data_paths, self.test_step_outputs):
+            pred_scores = pred_scores.squeeze(1)
+            start_idx = 0
+            for subgraph_path in subgraph_paths:
+                subgraph_filename = subgraph_path.split('/')[-1]
+                targetname = subgraph_filename.split('_')[0]
+                subgraph_name = subgraph_filename.split('_', maxsplit=1)[1]
+                    
+                if targetname not in target_pred_subgraph_scores:
+                    target_pred_subgraph_scores[targetname] = {}
+
+                subgraph_df_columns = self.subgraph_columns_dict[f"{targetname}_{subgraph_name.replace('.dgl', '')}"]
+                for i, modelname in enumerate(subgraph_df_columns):
+                    if modelname not in target_pred_subgraph_scores[targetname]:
+                        target_pred_subgraph_scores[targetname][modelname] = []
+                    target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
+                start_idx += len(subgraph_df_columns)
+
+        self.test_step_outputs.clear()  # free memory
+        self.test_step_data_paths.clear()  # free memory
+        if len(self.valid_targets) != len(target_pred_subgraph_scores):
+            return
+
+        target_mean_mse, target_median_mse, target_mean_ranking_loss, target_median_ranking_loss = [], [], [], []
+        for target in self.valid_targets:    
+            ensemble_mean_scores, ensemble_median_scores = [], []
+            for modelname in target_pred_subgraph_scores[target]:
+                ensemble_mean_scores += [np.mean(np.array(target_pred_subgraph_scores[target][modelname]))]
+                ensemble_median_scores += [np.median(np.array(target_pred_subgraph_scores[target][modelname]))]
+            pred_df = pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'mean_score': ensemble_mean_scores, 
+                                    'median_score': ensemble_median_scores})
+            native_df = self.native_dfs_dict[target]
+            native_tmscores = dict(zip(native_df['model'], native_df['tmscore']))
+
+            merge_df = pred_df.merge(native_df, on=f'model', how="inner")
+            target_mean_mse += [mean_squared_error(np.array(merge_df['mean_score']), np.array(merge_df['tmscore']))]
+            
+            pred_df = pred_df.sort_values(by=['mean_score'], ascending=False)
+            pred_df.reset_index(inplace=True)
+            top1_model = pred_df.loc[0, 'model']
+            target_mean_ranking_loss += [float(np.max(np.array(native_df['tmscore']))) - float(native_tmscores[top1_model])]
+
+            target_median_mse += [mean_squared_error(np.array(merge_df['median_score']), np.array(merge_df['tmscore']))]
+            pred_df = pred_df.sort_values(by=['median_score'], ascending=False)
+            pred_df.reset_index(inplace=True)
+            top1_model = pred_df.loc[0, 'model']
+            target_median_ranking_loss += [float(np.max(np.array(native_df['tmscore']))) - float(native_tmscores[top1_model])]
+            
+
+        end = time.time()
+        # self.log('val_target_cal_time(s)', end - start, on_epoch=True)
+        self.log('test_target_mean_mse', np.mean(np.array(target_mean_mse)), on_epoch=True)
+        self.log('test_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
+        self.log('test_target_mean_ranking_loss', np.mean(np.array(target_mean_ranking_loss)), on_epoch=True)
+        self.log('test_target_median_ranking_loss', np.mean(np.array(target_median_ranking_loss)), on_epoch=True)
