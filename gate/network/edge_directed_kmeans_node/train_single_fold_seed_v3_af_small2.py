@@ -222,8 +222,8 @@ def cli_main():
     edge_input_dim = 5 # 4 #3
     residual = True
     for num_heads in [8]:
-        for num_layer in [3, 4, 5]:
-            for dp_rate in [0.4]: #[0.2, 0.3, 0.4]:
+        for num_layer in [3, 4]:
+            for dp_rate in [0.2, 0.3, 0.4]:
                 for hidden_dim in [32]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
                         for loss_fun in ['mse']:#, 'binary']:
