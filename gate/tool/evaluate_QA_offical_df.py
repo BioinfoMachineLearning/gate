@@ -164,7 +164,7 @@ if __name__ == '__main__':
                                    select_tmscores=max_tmscores, MSEs=MSEs)
 
     group_ids = [key for key in group_res]
-    print('  '.join(group_ids))
+    print('    '.join(group_ids))
     
     targets = [target.rstrip('.csv') for target in sorted(os.listdir(args.nativedir))]
     print('\t'.join(targets))

@@ -37,7 +37,7 @@ def run_pairwise(mmalign_program, indir, scoredir, outfile):
                 continue
             process_list.append([mmalign_program, indir, pdb1, pdb2, scoredir])
 
-    pool = Pool(processes=60)
+    pool = Pool(processes=120)
     results = pool.map(run_command, process_list)
     pool.close()
     pool.join()

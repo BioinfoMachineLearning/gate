@@ -10,16 +10,21 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    QA_scores = ['alphafold', 'cdpred', 'dproqa', 'pairwise', 'pairwise_aligned', 'pairwise_qsscore', 'voro_scores', 'enqa']
+    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'pairwise_usalign', 'pairwise_qsscore', 'voro_scores', 'enqa']
+    if os.path.exists(args.indir + '/af_features'):
+        QA_scores += ['af_features']
+
     targets = sorted(os.listdir(args.indir + '/' + QA_scores[0]))
 
     for target in targets:
+        print("Processing " + target)
         target = target.replace('.csv', '')
         af_plddt_avg_dict, af_plddt_avg_norm_dict = {}, {}
+        af_confidence_dict, af_iptm_dict, af_num_inter_paes_dict, af_pdockq_dict = {}, {}, {}, {}
         icps_dict, recall_dict = {}, {}
         dproqa_dict, dproqa_norm_dict = {}, {}
         enqa_dict, enqa_norm_dict = {}, {}
-        pairwise_dict, pairwise_aligned_dict, pairwise_qsscore_dict = {}, {}, {}
+        pairwise_dict, pairwise_usalign_dict, pairwise_qsscore_dict = {}, {}, {}
         GNN_sum_score_dict, GNN_pcadscore_dict, voromqa_dark_dict = {}, {}, {}
         GNN_sum_score_norm_dict, GNN_pcadscore_norm_dict, voromqa_dark_norm_dict = {}, {}, {}
 
@@ -35,7 +40,7 @@ if __name__ == '__main__':
                     plddt_norm = df.loc[i, 'plddt_norm']
                     af_plddt_avg_dict[model] = plddt
                     af_plddt_avg_norm_dict[model] = plddt_norm
-            elif QA_score == "cdpred":
+            elif QA_score == "contact":
                 for i in range(len(df)):
                     model = df.loc[i, 'model']
                     icps = df.loc[i, 'icps']
@@ -60,10 +65,10 @@ if __name__ == '__main__':
                 df = pd.read_csv(csv_file, index_col=[0])
                 for model in df.columns:
                     pairwise_dict[model] = np.mean(np.array(df[model]))
-            elif QA_score == "pairwise_aligned":
+            elif QA_score == "pairwise_usalign":
                 df = pd.read_csv(csv_file, index_col=[0])
                 for model in df.columns:
-                    pairwise_aligned_dict[model] = np.mean(np.array(df[model]))
+                    pairwise_usalign_dict[model] = np.mean(np.array(df[model]))
             elif QA_score == "pairwise_qsscore":
                 df = pd.read_csv(csv_file, index_col=[0])
                 for model in df.columns:
@@ -88,10 +93,19 @@ if __name__ == '__main__':
 
                     voromqa_dark_dict[model] = voromqa_dark
                     voromqa_dark_norm_dict[model] = voromqa_dark_norm
+            elif QA_score == "af_features":
+                for i in range(len(df)):
+                    model = df.loc[i, 'jobs']
+                    af_confidence_dict[model] = df.loc[i, 'iptm_ptm']
+                    af_iptm_dict[model] = df.loc[i, 'iptm']
+                    af_num_inter_paes_dict[model] = df.loc[i, 'num_inter_pae']
+                    af_pdockq_dict[model] = df.loc[i, 'mpDockQ/pDockQ']
 
         data_dict = {'model': [], 
-                    'pairwise': [], 'pairwise_aligned': [], 'pairwise_qsscore': [],
+                    'pairwise': [], 'pairwise_usalign': [], 'pairwise_qsscore': [],
                     'af_plddt_avg': [], 'af_plddt_avg_norm': [],
+                    'af_confidence': [], 'af_iptm': [],
+                    'af_num_inter_pae': [], 'af_dockq': [],
                     'icps': [], 'recall': [], 
                     'dproqa': [], 'dproqa_norm': [],
                     'enqa': [], 'enqa_norm': [],           
@@ -101,10 +115,16 @@ if __name__ == '__main__':
         for model in models_for_targets:
             data_dict['model'] += [model]
             data_dict['pairwise'] += [pairwise_dict[model]]
-            data_dict['pairwise_aligned'] += [pairwise_aligned_dict[model]]
+            data_dict['pairwise_usalign'] += [pairwise_usalign_dict[model]]
             data_dict['pairwise_qsscore'] += [pairwise_qsscore_dict[model]]
             data_dict['af_plddt_avg'] += [af_plddt_avg_dict[model]]
             data_dict['af_plddt_avg_norm'] += [af_plddt_avg_norm_dict[model]]
+
+            data_dict['af_confidence'] += [af_confidence_dict[model]]
+            data_dict['af_iptm'] += [af_iptm_dict[model]]
+            data_dict['af_num_inter_pae'] += [af_num_inter_paes_dict[model]]
+            data_dict['af_dockq'] += [af_pdockq_dict[model]]
+
             data_dict['icps'] += [icps_dict[model]]
             data_dict['recall'] += [recall_dict[model]]
             data_dict['dproqa'] += [dproqa_dict[model]]
