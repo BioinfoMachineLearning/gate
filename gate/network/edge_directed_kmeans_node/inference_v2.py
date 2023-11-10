@@ -91,7 +91,7 @@ def cli_main():
     ensemble_dict = {}
     for line in open(args.ckptfile):
         line = line.rstrip('\n')
-        foldname, ckptname, valid_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
+        foldname, runname, ckptname, valid_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
         ckpts_dict[foldname] = ckptname
         if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
             if valid_target_mean_mse < valid_target_median_mse:
@@ -108,7 +108,7 @@ def cli_main():
         dgldir = f"{args.outdir}/processed_data/dgl"
         labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
-        ckpt_dir = f"{args.ckptdir}/fold{fold}/" + ckpts_dict["fold" + str(fold)]
+        ckpt_dir = f"{args.ckptdir}/fold{fold}/ckpt/" + ckpts_dict["fold" + str(fold)] 
         if len(os.listdir(ckpt_dir)) == 0:
             raise Exception(f"cannot find any check points in {ckpt_dir}")
 

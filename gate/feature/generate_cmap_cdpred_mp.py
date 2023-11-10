@@ -437,14 +437,15 @@ if __name__ == '__main__':
         msa_process_list += target_msa_list
         run_cdpred_list += target_cdpred_list
 
-    pool = Pool(processes=15)
+    pool = Pool(processes=5)
     results = pool.map(run_msa_tool, msa_process_list)
     pool.close()
     pool.join()
 
     if len(run_cdpred_list) > 0:
         print(run_cdpred_list)
-        pool = Pool(processes=10)
+        print(f"Total number of running times: {len(run_cdpred_list)}")
+        pool = Pool(processes=7)
         results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
         pool.close()
         pool.join()
