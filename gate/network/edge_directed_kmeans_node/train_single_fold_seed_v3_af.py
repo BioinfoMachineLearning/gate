@@ -227,7 +227,7 @@ def cli_main():
                 for hidden_dim in [32]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
                         for loss_fun in ['mse']:#, 'binary']:
-                            for lr in [0.0001, 0.001]:
+                            for lr in [0.00001, 0.0001, 0.001]:
                                 for weight_decay in [0.01, 0.05]:
                                     for layer_norm in [False, True]:
                                         batch_norm = not layer_norm
