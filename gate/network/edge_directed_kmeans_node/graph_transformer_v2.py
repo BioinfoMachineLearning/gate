@@ -140,7 +140,11 @@ class Gate(L.LightningModule):
         self.log_train_mse = log_train_mse
         self.log_val_mse = log_val_mse
 
-        self.save_hyperparameters(ignore=['loss_function', 'training_step_data_paths',
+        self.learning_curve = {'train_loss_epoch': [], 'valid_loss': [], 
+                        'val_target_mean_mse': [], 'val_target_median_mse': [],
+                        'val_target_mean_ranking_loss': [], 'val_target_median_ranking_loss': []}
+                        
+        self.save_hyperparameters(ignore=['loss_function', 'training_step_data_paths', 'learning_curve',
                                           'training_step_outputs', 'valid_step_data_paths', 'test_step_data_paths', 'test_step_outputs',
                                           'valid_step_outputs', 'train_targets', 'valid_targets',
                                           'subgraph_columns_dict', 'native_dfs_dict'])
@@ -245,7 +249,10 @@ class Gate(L.LightningModule):
         return node_loss
 
     def on_train_epoch_end(self):
-
+        train_loss = self.trainer.callback_metrics.get('train_loss_epoch').item()
+        # Append the losses to the lists
+        self.learning_curve['train_loss_epoch'].append(train_loss)
+        
         if not self.log_train_mse:
             return
 
@@ -293,6 +300,9 @@ class Gate(L.LightningModule):
         self.log('train_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
 
     def on_validation_epoch_end(self):
+
+        valid_loss = self.trainer.callback_metrics.get('valid_loss').item()
+        self.learning_curve['valid_loss'].append(valid_loss)
 
         if not self.log_val_mse:
             return
@@ -354,6 +364,13 @@ class Gate(L.LightningModule):
         self.log('val_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
         self.log('val_target_mean_ranking_loss', np.mean(np.array(target_mean_ranking_loss)), on_epoch=True)
         self.log('val_target_median_ranking_loss', np.mean(np.array(target_median_ranking_loss)), on_epoch=True)
+
+        self.learning_curve['val_target_mean_mse'].append(target_mean_mse)
+        self.learning_curve['val_target_median_mse'].append(target_median_mse)
+        self.learning_curve['val_target_mean_ranking_loss'].append(target_mean_ranking_loss)
+        self.learning_curve['val_target_median_ranking_loss'].append(target_median_ranking_loss)
+
+        # print(self.learning_curve)
 
     def on_test_epoch_end(self):
 
@@ -417,3 +434,4 @@ class Gate(L.LightningModule):
         self.log('test_target_median_mse', np.mean(np.array(target_median_mse)), on_epoch=True)
         self.log('test_target_mean_ranking_loss', np.mean(np.array(target_mean_ranking_loss)), on_epoch=True)
         self.log('test_target_median_ranking_loss', np.mean(np.array(target_median_ranking_loss)), on_epoch=True)
+
