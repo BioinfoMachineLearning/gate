@@ -365,10 +365,10 @@ class Gate(L.LightningModule):
         self.log('val_target_mean_ranking_loss', np.mean(np.array(target_mean_ranking_loss)), on_epoch=True)
         self.log('val_target_median_ranking_loss', np.mean(np.array(target_median_ranking_loss)), on_epoch=True)
 
-        self.learning_curve['val_target_mean_mse'].append(target_mean_mse)
-        self.learning_curve['val_target_median_mse'].append(target_median_mse)
-        self.learning_curve['val_target_mean_ranking_loss'].append(target_mean_ranking_loss)
-        self.learning_curve['val_target_median_ranking_loss'].append(target_median_ranking_loss)
+        self.learning_curve['val_target_mean_mse'].append(np.mean(np.array(target_mean_mse)))
+        self.learning_curve['val_target_median_mse'].append(np.mean(np.array(target_median_mse)))
+        self.learning_curve['val_target_mean_ranking_loss'].append(np.mean(np.array(target_mean_ranking_loss)))
+        self.learning_curve['val_target_median_ranking_loss'].append(np.mean(np.array(target_median_ranking_loss)))
 
         # print(self.learning_curve)
 

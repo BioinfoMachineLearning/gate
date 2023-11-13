@@ -108,7 +108,7 @@ def save_res(data, file_name):
 
 import time
 
-@scheduler.parallel(n_jobs=3)
+@scheduler.serial
 def objfunc(args_list):
 
     objective_evaluated = []
@@ -255,13 +255,11 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
     val_target_mean_ranking_loss = model.learning_curve['val_target_mean_ranking_loss']
     val_target_median_ranking_loss = model.learning_curve['val_target_median_ranking_loss']
 
-    loss1 = abs(train_loss[np.argmin(valid_loss)] - np.min(valid_loss))
+    loss1 = abs(train_loss[np.argmin(valid_loss)] - np.min(valid_loss)) * 10
     loss2 = np.min(valid_loss)
     loss3 = min(val_target_mean_mse[np.argmin(valid_loss)], val_target_median_mse[np.argmin(valid_loss)])
     loss4 = min(val_target_mean_ranking_loss[np.argmin(valid_loss)], val_target_median_ranking_loss[np.argmin(valid_loss)])
 
-    print(loss1 + loss2 + loss3 + loss4)
-    
     return loss1 + loss2 + loss3 + loss4
 
 def cli_main():
@@ -369,7 +367,7 @@ def cli_main():
     all_runs = []
 
     for i in range(num_of_tries):
-        results = tuner.maximize()
+        results = tuner.minimize()
         print('best parameters:',results['best_params'])
         print('best objective:',results['best_objective'])
 
