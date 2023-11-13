@@ -108,6 +108,7 @@ def save_res(data, file_name):
 
 import time
 
+@scheduler.parallel(n_jobs=3)
 def objfunc(args_list):
 
     objective_evaluated = []
@@ -259,6 +260,8 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
     loss3 = min(val_target_mean_mse[np.argmin(valid_loss)], val_target_median_mse[np.argmin(valid_loss)])
     loss4 = min(val_target_mean_ranking_loss[np.argmin(valid_loss)], val_target_median_ranking_loss[np.argmin(valid_loss)])
 
+    print(loss1 + loss2 + loss3 + loss4)
+    
     return loss1 + loss2 + loss3 + loss4
 
 def cli_main():
