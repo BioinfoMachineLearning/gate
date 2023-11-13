@@ -249,15 +249,15 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
 
     valid_loss = model.learning_curve['valid_loss']
     train_loss = model.learning_curve['train_loss_epoch']
-    valid_mean_loss = model.learning_curve['valid_mean_loss']
-    valid_median_loss = model.learning_curve['valid_median_loss']
-    valid_mean_rank_loss = model.learning_curve['valid_mean_rank_loss']
-    valid_median_rank_loss = model.learning_curve['valid_median_rank_loss']
+    val_target_mean_mse = model.learning_curve['val_target_mean_mse']
+    val_target_median_mse = model.learning_curve['val_target_median_mse']
+    val_target_mean_ranking_loss = model.learning_curve['val_target_mean_ranking_loss']
+    val_target_median_ranking_loss = model.learning_curve['val_target_median_ranking_loss']
 
     loss1 = abs(train_loss[np.argmin(valid_loss)] - np.min(valid_loss))
     loss2 = np.min(valid_loss)
-    loss3 = min(valid_mean_loss[np.argmin(valid_loss)], valid_median_loss[np.argmin(valid_loss)])
-    loss4 = min(valid_mean_rank_loss[np.argmin(valid_loss)], valid_median_rank_loss[np.argmin(valid_loss)])
+    loss3 = min(val_target_mean_mse[np.argmin(valid_loss)], val_target_median_mse[np.argmin(valid_loss)])
+    loss4 = min(val_target_mean_ranking_loss[np.argmin(valid_loss)], val_target_median_ranking_loss[np.argmin(valid_loss)])
 
     return loss1 + loss2 + loss3 + loss4
 
