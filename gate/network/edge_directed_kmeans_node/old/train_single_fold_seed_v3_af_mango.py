@@ -108,7 +108,7 @@ def save_res(data, file_name):
 
 import time
 
-@scheduler.serial
+# @scheduler.serial
 def objfunc(args_list):
 
     objective_evaluated = []

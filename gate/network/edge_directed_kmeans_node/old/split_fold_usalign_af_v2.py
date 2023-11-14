@@ -234,17 +234,17 @@ def build_model_graph(targetname: str,
 
     # 6. add feature to graph
     graph = dgl.graph((torch.tensor(src_nodes), torch.tensor(dst_nodes)), num_nodes=nodes_num)
-    # lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
+    lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
     update_node_feature(graph, [alphafold_plddt_score_feature, alphafold_confidence_score_feature,
                                 alphafold_num_inter_pae_feature, alphafold_iptm_feature, alphafold_dockq_feature,
                                 average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
                                 average_sim_mmalign_score_in_subgraph_feature, average_sim_mmalign_score_in_full_graph_feature,
                                 average_sim_qsscore_in_subgraph_feature, average_sim_qsscore_in_full_graph_feature,
                                 voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
-                                dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature])
+                                dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature, lap_enc_feature])
 
-    # edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
-    update_edge_feature(graph, [edge_sim_feature, edge_mmalign_sim_feature,
+    edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
+    update_edge_feature(graph, [edge_sin_pos, edge_sim_feature, edge_mmalign_sim_feature,
                                 edge_qsscore_sim_feature, edge_common_interface_feature])
 
     dgl.save_graphs(filename=os.path.join(out, f'{filename}.dgl'), g_list=graph)

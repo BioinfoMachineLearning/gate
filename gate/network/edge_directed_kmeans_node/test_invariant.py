@@ -122,7 +122,6 @@ def cli_main():
             break
 
         print(ckptfile)
-        # continue
         
         lines = open(folddir + '/targets.list').readlines()
 
