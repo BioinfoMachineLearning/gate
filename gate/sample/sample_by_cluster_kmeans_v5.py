@@ -55,6 +55,10 @@ def sample_models_by_kmeans(usaligndir, mmaligndir, qsscoredir, sample_number_pe
                     subgraph_indices += sampled_indices
 
                 # subgraph_indices = sorted(subgraph_indices)
+                
+                subgraph_indices = list(subgraph_indices)
+
+                random.shuffle(subgraph_indices)
 
                 selected_columns = [pairwise_usalign_graph.columns[i] for i in subgraph_indices]
                 
@@ -80,6 +84,10 @@ def sample_models_by_kmeans(usaligndir, mmaligndir, qsscoredir, sample_number_pe
                     subgraph_indices = range(len(pairwise_usalign_graph.columns))
 
                 # subgraph_indices = sorted(subgraph_indices)
+
+                subgraph_indices = list(subgraph_indices)
+
+                random.shuffle(subgraph_indices)
 
                 selected_columns = [pairwise_usalign_graph.columns[i] for i in subgraph_indices]
                 
