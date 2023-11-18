@@ -32,6 +32,7 @@ def generate_enqa_scores(indir: str,
                          targetname: str, 
                          model_csv: str):
                          
+    print(model_csv)
     if not os.path.exists(model_csv):
         os.chdir(EnQA_dir)
         

@@ -128,7 +128,7 @@ if __name__ == '__main__':
             spear_corr = spearmanr(np.array(scores_filt), np.array(scores_true)).statistic
 
             scaler = MinMaxScaler()
-            if np.max(np.array(scores_filt)) > 1:
+            if np.max(np.array(scores_filt)) > 1 or np.min(np.array(scores_filt)) < 0:
                 scores_filt_norm = scaler.fit_transform(np.array(scores_filt).reshape(-1, 1))
                 mse = mean_squared_error(scores_true, scores_filt_norm.reshape(-1))
             else:    
