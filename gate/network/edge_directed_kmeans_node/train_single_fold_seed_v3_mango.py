@@ -279,7 +279,7 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
             val_target_mean_ranking_loss = np.array(data['val_target_mean_ranking_loss'])
             val_target_median_ranking_loss = np.array(data['val_target_median_ranking_loss'])
 
-    loss1 = abs(train_loss[np.argmin(valid_loss)] - np.min(valid_loss))
+    loss1 = abs(train_loss[np.argmin(valid_loss)-1] - np.min(valid_loss))
     loss2 = np.min(valid_loss)
     penalty = 0
     if len(valid_loss) < 20:
@@ -388,7 +388,7 @@ def cli_main():
     conf_Dict['domain_size'] =20000
     conf_Dict['initial_random']= 5
     tuner = Tuner(param_dict, objfunc,conf_Dict)
-    num_of_tries = 30
+    num_of_tries = 3
     all_runs = []
 
     for i in range(num_of_tries):

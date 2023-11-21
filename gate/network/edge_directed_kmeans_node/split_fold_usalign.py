@@ -21,6 +21,7 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 import wandb
 from scipy.stats.stats import pearsonr
 import scipy.sparse as sp
+import random 
 
 def laplacian_positional_encoding(g: dgl.DGLGraph, pos_enc_dim: int) -> torch.Tensor:
     """
@@ -379,26 +380,37 @@ def cli_main():
                                                            auto_sim_threshold=args.auto_sim_threshold,
                                                            auto_sim_threshold_global=args.auto_sim_threshold_global)
 
-        kf = KFold(n_splits=10, shuffle=True, random_state=42)
+        random.shuffle(all_targets)  
 
-        for i, (train_val_index, test_index) in enumerate(kf.split(all_targets)):
+        data_array = np.array(all_targets)
+
+        folds = np.array_split(data_array, 10)
+
+        for test_fold_index in range(len(folds)):
             
-            folddir = f"{outdir}/fold{i}"
+            folddir = f"{outdir}/fold{test_fold_index}"
+
             os.makedirs(folddir, exist_ok=True)
 
-            print(f"Fold {i}:")
+            print(f"Fold {test_fold_index}:")
 
-            targets_train_val_in_fold = [all_targets[i] for i in train_val_index]
+            targets_test_in_fold = list(folds[test_fold_index])
 
-            targets_train_in_fold, targets_val_in_fold = train_test_split(targets_train_val_in_fold, test_size=0.1, random_state=42)
+            val_fold_index = test_fold_index + 1
+            if val_fold_index >= len(folds):
+                val_fold_index = 0
+            
+            targets_val_in_fold = list(folds[val_fold_index])
 
+            targets_train_in_fold = []
+            for i in range(len(folds)):
+                if i != val_fold_index and i != test_fold_index:
+                    targets_train_in_fold += list(folds[i])
+            
             print(f"Train targets:")
             print(targets_train_in_fold)
-
             print(f"Validation targets:")
             print(targets_val_in_fold)
-
-            targets_test_in_fold = [all_targets[i] for i in test_index]
             print(f"Test targets:")
             print(targets_test_in_fold)
 
