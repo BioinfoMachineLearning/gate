@@ -218,7 +218,7 @@ def build_model_graph(targetname: str,
         for dst in range(nodes_num):
             if src == dst:
                 continue
-            if subgraph_mmalign_array[dst, src] >= sim_threshold:
+            if subgraph_mmalign_array[src, dst] >= sim_threshold:
                 src_nodes += [src]
                 dst_nodes += [dst]
 
