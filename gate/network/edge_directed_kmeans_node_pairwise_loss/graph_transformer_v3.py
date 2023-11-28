@@ -192,6 +192,7 @@ class Gate(L.LightningModule):
 
     def cal_pairwise_loss(self, output, true_scores, node_counts):
         pairwise_loss = 0.0
+        ranking_loss = 0.0
         start_node_idx = 0
         for node_count in node_counts:
             
@@ -210,15 +211,17 @@ class Gate(L.LightningModule):
 
             start_node_idx += node_count
 
-        return pairwise_loss / np.sum(np.array(node_counts))
+            ranking_loss += torch.max(true_scores_in_graph) - true_scores_in_graph[torch.argmax(pred_scores)]
+
+        return pairwise_loss / np.sum(np.array(node_counts)), ranking_loss / len(node_counts)
 
     def training_step(self, batch, batch_idx):
         data, node_label, data_paths, node_counts = batch
         node_out = self(data, data.ndata['f'], data.edata['f'])
         node_loss = self.criterion_node(node_out, node_label)
-        pairwise_loss = self.cal_pairwise_loss(node_out, node_label, node_counts)
+        pairwise_loss, ranking_loss = self.cal_pairwise_loss(node_out, node_label, node_counts)
 
-         if self.pairwise_loss_weight == "auto":
+        if self.pairwise_loss_weight == "auto":
             loss = node_loss + pairwise_loss / pairwise_loss.detach() * node_loss.detach()
         else:
             loss = node_loss + pairwise_loss * self.pairwise_loss_weight
@@ -226,6 +229,7 @@ class Gate(L.LightningModule):
         self.log('train_loss', loss, on_epoch=True, batch_size=self.batch_size)
         self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         self.log('train_pairwise_loss', pairwise_loss, on_epoch=True, batch_size=self.batch_size)
+        self.log('train_ranking_loss', ranking_loss, on_epoch=True, batch_size=self.batch_size)
         if self.log_train_mse:
             self.training_step_data_paths.append(data_paths)
             self.training_step_outputs.append(node_out.cpu().data.numpy())
@@ -237,7 +241,7 @@ class Gate(L.LightningModule):
         node_out = self(data, data.ndata['f'], data.edata['f'])
 
         node_loss = self.criterion_node(node_out, node_label)
-        pairwise_loss = self.cal_pairwise_loss(node_out, node_label, node_counts)
+        pairwise_loss, ranking_loss = self.cal_pairwise_loss(node_out, node_label, node_counts)
         
         if self.pairwise_loss_weight == "auto":
             loss = node_loss + pairwise_loss / pairwise_loss.detach() * node_loss.detach()
@@ -247,7 +251,7 @@ class Gate(L.LightningModule):
         self.log('valid_loss', loss, on_epoch=True, batch_size=self.batch_size)
         self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
         self.log('valid_pairwise_loss', pairwise_loss, on_epoch=True, batch_size=self.batch_size)
-
+        self.log('valid_ranking_loss', ranking_loss, on_epoch=True, batch_size=self.batch_size)
         if self.log_val_mse:
             self.valid_step_data_paths.append(data_paths)
             self.valid_step_outputs.append(node_out.cpu().data.numpy())
