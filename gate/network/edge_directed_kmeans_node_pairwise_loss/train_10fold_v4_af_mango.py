@@ -202,23 +202,6 @@ def objective_graph_transformer(hyper_par):
         print(f"Test targets:")
         print(targets_test_in_fold)
 
-        start = time.time()
-        train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
-        val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
-        # test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
-
-        load_targets = []
-        if log_train_mse:
-            load_targets += targets_train_in_fold
-        if log_val_mse:
-            load_targets += targets_val_in_fold
-
-        subgraph_columns_dict = read_subgraph_columns(hyper_par['datadir'], load_targets)
-        native_dfs_dict = read_native_dfs(hyper_par['labeldir'], load_targets)
-        end = time.time()
-        
-        print(f"Loading time: {end-start}s")
-
         fold_ckpt_dir = ckpt_dir + '/fold' + str(fold)
         os.makedirs(fold_ckpt_dir, exist_ok=True)
 
@@ -228,6 +211,23 @@ def objective_graph_transformer(hyper_par):
         val_target_mean_ranking_loss, val_target_median_ranking_loss = [], []
 
         if not os.path.exists(run_json_file):
+            
+            start = time.time()
+            train_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_train_in_fold)
+            val_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_val_in_fold)
+            # test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+
+            load_targets = []
+            if log_train_mse:
+                load_targets += targets_train_in_fold
+            if log_val_mse:
+                load_targets += targets_val_in_fold
+
+            subgraph_columns_dict = read_subgraph_columns(hyper_par['datadir'], load_targets)
+            native_dfs_dict = read_native_dfs(hyper_par['labeldir'], load_targets)
+            end = time.time()
+            
+            print(f"Loading time: {end-start}s")
 
             train_loader = DataLoader(train_data,
                                     batch_size=batch_size,
