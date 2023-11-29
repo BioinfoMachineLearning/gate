@@ -372,6 +372,7 @@ def cli_main():
     parser.add_argument('--project', type=str, required=True)
     parser.add_argument('--dbdir', type=str, required=True)
     parser.add_argument('--labeldir', type=str, required=True)
+    parser.add_argument('--pairwise_loss_weight', type=str, required=True)
     parser.add_argument('--log_train_mse', default=False, type=lambda x: (str(x).lower() == 'true'))
     parser.add_argument('--log_val_mse', default=False, type=lambda x: (str(x).lower() == 'true'))
 
@@ -403,7 +404,7 @@ def cli_main():
         'mlp_dp_rate': [0.2, 0.3, 0.4, 0.5],
         'loss_fun': ['mse'],
         'pairwise_loss_fun': ['mse'],
-        'pairwise_loss_weight': [1],
+        'pairwise_loss_weight': [args.pairwise_loss_weight],
         # 'pairwise_loss_weight': ["auto", 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
         'lr': [0.00001, 0.00005, 0.0001, 0.0005, 0.001],
         'weight_decay': [0.01, 0.05],

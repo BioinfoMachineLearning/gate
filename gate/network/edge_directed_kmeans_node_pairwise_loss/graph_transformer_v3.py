@@ -224,7 +224,7 @@ class Gate(L.LightningModule):
         if self.pairwise_loss_weight == "auto":
             loss = node_loss + pairwise_loss / pairwise_loss.detach() * node_loss.detach()
         else:
-            loss = node_loss + pairwise_loss * self.pairwise_loss_weight
+            loss = node_loss + pairwise_loss * float(self.pairwise_loss_weight)
 
         self.log('train_loss', loss, on_epoch=True, batch_size=self.batch_size)
         self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
@@ -246,7 +246,7 @@ class Gate(L.LightningModule):
         if self.pairwise_loss_weight == "auto":
             loss = node_loss + pairwise_loss / pairwise_loss.detach() * node_loss.detach()
         else:
-            loss = node_loss + pairwise_loss * self.pairwise_loss_weight
+            loss = node_loss + pairwise_loss * float(self.pairwise_loss_weight)
 
         self.log('valid_loss', loss, on_epoch=True, batch_size=self.batch_size)
         self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
