@@ -142,6 +142,7 @@ def objective_graph_transformer(hyper_par):
     hidden_dim = hyper_par['hidden_dim']
     mlp_dp_rate = hyper_par['mlp_dp_rate']
     loss_fun = hyper_par['loss_fun']
+    opt = hyper_par['opt']
     lr = hyper_par['lr']
     weight_decay = hyper_par['weight_decay']
     layer_norm = hyper_par['layer_norm']
@@ -162,19 +163,21 @@ def objective_graph_transformer(hyper_par):
     batch_norm = not layer_norm
 
     experiment_name = f"{node_input_dim}_" \
-                        f"{edge_input_dim}_" \
-                        f"{num_heads}_" \
-                        f"{num_layer}_" \
-                        f"{dp_rate}_" \
-                        f"{layer_norm}_" \
-                        f"{batch_norm}_" \
-                        f"{residual}_" \
-                        f"{hidden_dim}_" \
-                        f"{mlp_dp_rate}_" \
-                        f"{loss_fun}_" \
-                        f"{pairwise_loss_weight}_" \
-                        f"{lr}_" \
-                        f"{weight_decay}"
+                      f"{edge_input_dim}_" \
+                      f"{num_heads}_" \
+                      f"{num_layer}_" \
+                      f"{dp_rate}_" \
+                      f"{layer_norm}_" \
+                      f"{batch_norm}_" \
+                      f"{residual}_" \
+                      f"{hidden_dim}_" \
+                      f"{mlp_dp_rate}_" \
+                      f"{loss_fun}_" \
+                      f"{pairwise_loss_weight}_" \
+                      f"{opt}_" \
+                      f"{lr}_" \
+                      f"{weight_decay}_" \
+                      f"{batch_size}"
 
     ckpt_dir = ckpt_root_dir + '/' + experiment_name
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -187,14 +190,14 @@ def objective_graph_transformer(hyper_par):
 
         train_loader = DataLoader(train_data,
                                 batch_size=batch_size,
-                                num_workers=16,
+                                num_workers=32,
                                 pin_memory=True,
                                 collate_fn=collate,
                                 shuffle=True)
         
         val_loader = DataLoader(val_data,
                                 batch_size=batch_size,
-                                num_workers=16,
+                                num_workers=32,
                                 pin_memory=True,
                                 collate_fn=collate,
                                 shuffle=False)
@@ -220,6 +223,7 @@ def objective_graph_transformer(hyper_par):
         wandb_logger.experiment.config["loss_fun"] = loss_fun
         wandb_logger.experiment.config["pairwise_loss_fun"] = pairwise_loss_fun
         wandb_logger.experiment.config["pairwise_loss_weight"] = pairwise_loss_weight
+        wandb_logger.experiment.config["opt"] = opt
         wandb_logger.experiment.config["lr"] = lr
         wandb_logger.experiment.config["weight_decay"] = weight_decay
         
@@ -255,6 +259,7 @@ def objective_graph_transformer(hyper_par):
                     loss_function=loss_function,
                     pairwise_loss_function=pairwise_loss_function,
                     pairwise_loss_weight=pairwise_loss_weight,
+                    opt=opt,
                     learning_rate=lr,
                     weight_decay=weight_decay,
                     train_targets=targets_train_in_fold,
@@ -264,7 +269,7 @@ def objective_graph_transformer(hyper_par):
                     log_train_mse=log_train_mse,
                     log_val_mse=log_val_mse)
 
-        trainer = L.Trainer(accelerator='gpu',max_epochs=300, logger=wandb_logger, deterministic=True)
+        trainer = L.Trainer(accelerator='gpu',max_epochs=400, logger=wandb_logger, deterministic=True)
 
         # wandb_logger.watch(model)
 
@@ -273,6 +278,7 @@ def objective_graph_transformer(hyper_par):
         valid_loss = model.learning_curve['valid_loss'][1:]
         valid_node_loss = model.learning_curve['valid_node_loss'][1:]
         valid_pairwise_loss = model.learning_curve['valid_pairwise_loss'][1:]
+        valid_ranking_loss = model.learning_curve['valid_ranking_loss'][1:]
 
         train_loss = model.learning_curve['train_loss_epoch']
         val_target_mean_mse = model.learning_curve['val_target_mean_mse']
@@ -285,6 +291,7 @@ def objective_graph_transformer(hyper_par):
                                 'valid_loss': valid_loss,
                                 'valid_node_loss': valid_node_loss,
                                 'valid_pairwise_loss': valid_pairwise_loss,
+                                'valid_ranking_loss': valid_ranking_loss,
                                 'val_target_mean_mse': val_target_mean_mse,
                                 'val_target_median_mse': val_target_median_mse,
                                 'val_target_mean_ranking_loss': val_target_mean_ranking_loss,
@@ -297,6 +304,7 @@ def objective_graph_transformer(hyper_par):
             valid_loss = np.array(data['valid_loss'][1:])
             valid_node_loss = np.array(data['valid_node_loss'][1:])
             valid_pairwise_loss = np.array(data['valid_pairwise_loss'][1:])
+            valid_ranking_loss = np.array(data['valid_ranking_loss'][1:])
             val_target_mean_mse = np.array(data['val_target_mean_mse'])
             val_target_median_mse = np.array(data['val_target_median_mse'])
             val_target_mean_ranking_loss = np.array(data['val_target_mean_ranking_loss'])
@@ -383,14 +391,15 @@ def cli_main():
         'workdir': [workdir],
         'train_data': [train_data],
         'val_data': [val_data],
-        'num_heads': [4, 8],
-        'num_layer': [1, 2, 3, 4, 5],
-        'dp_rate': [0.2, 0.3, 0.4, 0.5],
+        'num_heads': [4, 8, 12],
+        'num_layer': [2, 3, 4, 5],
+        'dp_rate': [0.1, 0.2, 0.3, 0.4, 0.5],
         'hidden_dim': [16, 32, 64],
-        'mlp_dp_rate': [0.2, 0.3, 0.4, 0.5],
+        'mlp_dp_rate': [0.1, 0.2, 0.3, 0.4, 0.5],
         'loss_fun': ['mse'],
         'pairwise_loss_fun': ['mse'],
         'pairwise_loss_weight': ["auto", 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+        'opt': ['AdamW', 'SGD'],
         'lr': [0.00001, 0.00005, 0.0001, 0.0005, 0.001],
         'weight_decay': [0.01, 0.05],
         'layer_norm': [False, True],

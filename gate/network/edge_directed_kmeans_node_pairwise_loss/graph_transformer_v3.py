@@ -86,6 +86,7 @@ class Gate(L.LightningModule):
                  loss_function,
                  pairwise_loss_function,
                  pairwise_loss_weight,
+                 opt,
                  learning_rate,
                  weight_decay,
                  train_targets=[], valid_targets=[], 
@@ -143,7 +144,8 @@ class Gate(L.LightningModule):
         self.native_dfs_dict = native_dfs_dict
         self.log_train_mse = log_train_mse
         self.log_val_mse = log_val_mse
-
+        self.opt = opt
+        
         self.learning_curve = {'train_loss_epoch': [], 'train_node_loss_epoch': [], 'train_pairwise_loss_epoch': [],
                                 'valid_loss': [], 'valid_node_loss': [], 'valid_pairwise_loss': [],
                                 'val_target_mean_mse': [], 'val_target_median_mse': [],
@@ -174,8 +176,11 @@ class Gate(L.LightningModule):
 
     def configure_optimizers(self):
         # self.hparams available because we called self.save_hyperparameters()
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, betas=(0.9, 0.98), eps=1e-9, weight_decay=self.weight_decay)
-        # optimizer = torch.optim.SGD(self.parameters(), lr=0.0001, momentum=0.9)
+        if self.opt == "AdamW":
+            optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, betas=(0.9, 0.98), eps=1e-9, weight_decay=self.weight_decay)
+        elif self.opt == "SGD":
+            optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9, weight_decay=self.weight_decay)
+
         # optimizer = NoamOpt(self.hid_dim, 1, 2000, torch.optim.Adam(self.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
         scheduler = ReduceLROnPlateau(optimizer, mode='min')
         metric_to_track = 'valid_loss'
@@ -283,11 +288,13 @@ class Gate(L.LightningModule):
         train_loss = self.trainer.callback_metrics.get('train_loss_epoch').item()
         train_node_loss = self.trainer.callback_metrics.get('train_node_loss_epoch').item()
         train_pairwise_loss = self.trainer.callback_metrics.get('train_pairwise_loss_epoch').item()
+        train_ranking_loss = self.trainer.callback_metrics.get('train_ranking_loss_epoch').item()
 
         # Append the losses to the lists
         self.learning_curve['train_loss_epoch'].append(train_loss)
-        self.learning_curve['train_node_loss_epoch'].append(train_loss)
-        self.learning_curve['train_pairwise_loss_epoch'].append(train_loss)
+        self.learning_curve['train_node_loss_epoch'].append(train_node_loss)
+        self.learning_curve['train_pairwise_loss_epoch'].append(train_pairwise_loss)
+        self.learning_curve['train_ranking_loss_epoch'].append(train_ranking_loss)
 
         if not self.log_train_mse:
             return
@@ -340,11 +347,13 @@ class Gate(L.LightningModule):
         valid_loss = self.trainer.callback_metrics.get('valid_loss').item()
         valid_node_loss = self.trainer.callback_metrics.get('valid_node_loss').item()
         valid_pairwise_loss = self.trainer.callback_metrics.get('valid_pairwise_loss').item()
+        valid_ranking_loss = self.trainer.callback_metrics.get('valid_ranking_loss').item()
 
         # Append the losses to the lists
         self.learning_curve['valid_loss'].append(valid_loss)
         self.learning_curve['valid_node_loss'].append(valid_node_loss)
         self.learning_curve['valid_pairwise_loss'].append(valid_pairwise_loss)
+        self.learning_curve['valid_ranking_loss'].append(valid_ranking_loss)
 
         if not self.log_val_mse:
             return
