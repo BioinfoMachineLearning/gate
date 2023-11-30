@@ -234,7 +234,7 @@ class Gate(L.LightningModule):
             self.training_step_data_paths.append(data_paths)
             self.training_step_outputs.append(node_out.cpu().data.numpy())
         
-        return node_loss
+        return loss
     
     def validation_step(self, batch, batch_idx):
         data, node_label, data_paths, node_counts = batch
@@ -256,7 +256,7 @@ class Gate(L.LightningModule):
             self.valid_step_data_paths.append(data_paths)
             self.valid_step_outputs.append(node_out.cpu().data.numpy())
 
-        return node_loss
+        return loss
 
     def test_step(self, batch, batch_idx):
         data, node_label, data_paths, node_counts = batch

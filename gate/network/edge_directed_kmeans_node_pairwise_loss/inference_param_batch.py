@@ -11,7 +11,7 @@ from typing import List, Union
 from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from graph_transformer_v2 import Gate
+from graph_transformer_v3 import Gate
 import lightning as L
 from torch.utils.data import Dataset
 from argparse import ArgumentParser
@@ -87,11 +87,13 @@ def cli_main():
 
     device = torch.device('cuda')  # set cuda device
 
+    dgldir = f"{args.outdir}/processed_data/dgl"
+    labeldir = f"{args.outdir}/processed_data/label"
+
     df = pd.read_csv(args.ckptfile)
     ckptnames = list(df['param'])
     print(ckptnames)
     for ckptname in ckptnames:
-        ckptname = "18_4_" + ckptname[:len(ckptname)-4]
         print(ckptname)
         savedir = args.outdir + '/predictions/' + ckptname
         os.makedirs(savedir, exist_ok=True)
@@ -100,11 +102,8 @@ def cli_main():
             continue
 
         for fold in range(10):
-            
-            dgldir = f"{args.outdir}/processed_data/dgl"
-            labeldir = f"{args.outdir}/processed_data/label"
             folddir = f"{args.outdir}/fold{fold}"
-            ckpt_dir = f"{args.ckptdir}/fold{fold}/ckpt/" + ckptname
+            ckpt_dir = f"{args.ckptdir}/ckpt/{ckptname}/fold{fold}"
             if len(os.listdir(ckpt_dir)) == 0:
                 raise Exception(f"cannot find any check points in {ckpt_dir}")
 
@@ -144,31 +143,17 @@ def cli_main():
                 weight_decay = config_list['weight_decay']
                 loss_function = torchmetrics.MeanSquaredError()
                 batch_size = config_list['batch_size']
+                pairwise_loss_weight = config_list['pairwise_loss_weight']
                 if config_list['loss_fun'] == 'binary':
                     loss_function = torch.nn.BCELoss()
+                pairwise_loss_function = torchmetrics.MeanSquaredError()
             else:
                 raise Exception(f"Cannot find the config file: {config_file}")
-                # node_input_dim = 8
-                # edge_input_dim = 16
-
-                # config_name = ckpts_dict["fold" + str(fold)]
-                # num_heads, num_layer, dp_rate, hidden_dim, mlp_dp_rate, loss_fun, lr, weight_decay = config_name.split('_')
-                # num_heads = int(num_heads)
-                # num_layer = int(num_layer)
-                # dp_rate = float(dp_rate)
-                # hidden_dim = int(hidden_dim)
-                # mlp_dp_rate = float(mlp_dp_rate)
-                # layer_norm = True
-                # learning_rate = float(lr)
-                # weight_decay = float(weight_decay)
-                # loss_function = torchmetrics.MeanSquaredError()
-                # if loss_fun == 'binary':
-                #     loss_function = torch.nn.BCELoss()
 
             test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
             test_loader = DataLoader(test_data,
                                     batch_size=batch_size,
-                                    num_workers=32,
+                                    num_workers=16,
                                     pin_memory=True,
                                     collate_fn=collate,
                                     shuffle=False)
@@ -183,16 +168,18 @@ def cli_main():
                         residual=True,
                         hidden_dim=hidden_dim,
                         mlp_dp_rate=mlp_dp_rate,
-                        check_pt_dir='',
-                        batch_size=512,
+                        check_pt_dir=ckpt_dir,
+                        batch_size=batch_size,
                         loss_function=loss_function,
+                        pairwise_loss_function=pairwise_loss_function,
+                        pairwise_loss_weight=pairwise_loss_weight,
                         learning_rate=learning_rate,
                         weight_decay=weight_decay)
 
             ckpt_path = ckpt_dir + '/' + ckptfile
             print(ckpt_path)
             
-            model = model.load_from_checkpoint(ckpt_path, loss_function=loss_function)
+            model = model.load_from_checkpoint(ckpt_path, loss_function=loss_function, pairwise_loss_function=pairwise_loss_function)
 
             model = model.to(device)
 
