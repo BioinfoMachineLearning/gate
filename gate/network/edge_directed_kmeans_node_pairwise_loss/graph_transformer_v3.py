@@ -147,7 +147,8 @@ class Gate(L.LightningModule):
         self.opt = opt
         
         self.learning_curve = {'train_loss_epoch': [], 'train_node_loss_epoch': [], 'train_pairwise_loss_epoch': [],
-                                'valid_loss': [], 'valid_node_loss': [], 'valid_pairwise_loss': [],
+                               'train_ranking_loss_epoch': [],
+                               'valid_loss': [], 'valid_node_loss': [], 'valid_pairwise_loss': [], 'valid_ranking_loss': [],
                                 'val_target_mean_mse': [], 'val_target_median_mse': [],
                                 'val_target_mean_ranking_loss': [], 'val_target_median_ranking_loss': []}
                         
