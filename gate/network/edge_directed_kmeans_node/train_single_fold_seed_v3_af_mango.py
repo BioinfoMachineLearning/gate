@@ -139,7 +139,7 @@ def objfunc(args_list):
 
         objective_evaluated.append(objective)
         
-        print(hyper_par)
+        # print(hyper_par)
         end_time = time.time()
         print('objective:', objective, ' time:',end_time-start_time)
         

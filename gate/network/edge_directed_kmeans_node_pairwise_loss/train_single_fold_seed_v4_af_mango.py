@@ -391,7 +391,7 @@ def cli_main():
         'workdir': [workdir],
         'train_data': [train_data],
         'val_data': [val_data],
-        'num_heads': [4, 8, 12],
+        'num_heads': [4, 8],
         'num_layer': [2, 3, 4, 5],
         'dp_rate': [0.1, 0.2, 0.3, 0.4, 0.5],
         'hidden_dim': [16, 32, 64],
