@@ -107,10 +107,20 @@ def cli_main():
     savedir = args.outdir + '/predictions/' + args.prefix
     os.makedirs(savedir, exist_ok=True)
 
+    lines = open(f"{args.outdir}/fold0/targets.list").readlines()
+    targets_train_in_fold = lines[0].split()
+    targets_val_in_fold = lines[1].split()
+    targets_test_in_fold = lines[2].split()
+    targets = sorted(targets_train_in_fold + targets_val_in_fold + targets_test_in_fold)
+    print(f"Test targets:")
+    print(targets)
+
+    dgldir = f"{args.outdir}/processed_data/dgl"
+    labeldir = f"{args.outdir}/processed_data/label"
+    test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets)
+
     for fold in range(10):
         
-        dgldir = f"{args.outdir}/processed_data/dgl"
-        labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
         ckpt_dir = f"{args.ckptdir}/fold{fold}/ckpt/" + ckpts_dict["fold" + str(fold)] 
         if len(os.listdir(ckpt_dir)) == 0:
@@ -126,15 +136,8 @@ def cli_main():
             break
 
         print(ckptfile)
-        
-        lines = open(folddir + '/targets.list').readlines()
-
-        targets_test_in_fold = lines[2].split()
 
         print(f"Fold {fold}:")
-
-        print(f"Test targets:")
-        print(targets_test_in_fold)
         
         config_file = ckpt_dir + '/config.json'
 
@@ -173,8 +176,7 @@ def cli_main():
             # loss_function = torchmetrics.MeanSquaredError()
             # if loss_fun == 'binary':
             #     loss_function = torch.nn.BCELoss()
-
-        test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
+        
         test_loader = DataLoader(test_data,
                                 batch_size=batch_size,
                                 num_workers=32,
@@ -207,6 +209,9 @@ def cli_main():
 
         model.eval()
 
+        save_fold_dir = savedir + '/fold' + str(fold)
+        os.makedirs(save_fold_dir, exist_ok=True)
+
         target_pred_subgraph_scores = {}
         for idx, (batch_graphs, labels, data_paths) in enumerate(test_loader):
             #print(data_paths)
@@ -235,7 +240,7 @@ def cli_main():
                     target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
                 start_idx += len(subgraph_df.columns)
 
-        for target in targets_test_in_fold:
+        for target in targets:
             ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
             for modelname in target_pred_subgraph_scores[target]:
                 target_pred_outdir = folddir + '/' + target
@@ -254,9 +259,9 @@ def cli_main():
                 std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]
                 normalized_std += [np.std(np.array(target_pred_subgraph_scores[target][modelname])) / mean_score]
             pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'score': ensemble_scores, 
-                          'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(savedir + '/' + target + '.csv')
+                          'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(save_fold_dir + '/' + target + '.csv')
 
-    
+        os.system(f"touch {save_fold_dir}/DONE")
 
 if __name__ == '__main__':
     cli_main()

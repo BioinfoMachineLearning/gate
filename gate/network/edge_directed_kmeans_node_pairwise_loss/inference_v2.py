@@ -11,7 +11,7 @@ from typing import List, Union
 from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from graph_transformer_v2 import Gate
+from graph_transformer_v3 import Gate
 import lightning as L
 from torch.utils.data import Dataset
 from argparse import ArgumentParser
@@ -92,7 +92,7 @@ def cli_main():
     ensemble_dict = {}
     for line in open(args.ckptfile):
         line = line.rstrip('\n')
-        foldname, runname, ckptname, valid_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
+        foldname, runname, ckptname, valid_loss, valid_node_loss, valid_pairwise_loss, valid_ranking_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
         ckpts_dict[foldname] = ckptname
         if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
             if valid_target_mean_mse < valid_target_median_mse:
@@ -149,30 +149,18 @@ def cli_main():
             hidden_dim = config_list['hidden_dim']
             mlp_dp_rate = config_list['mlp_dp_rate']
             layer_norm = config_list['layer_norm']
+            opt = config_list['opt']
             learning_rate = config_list['lr']
             weight_decay = config_list['weight_decay']
             loss_function = torchmetrics.MeanSquaredError()
             batch_size = config_list['batch_size']
             if config_list['loss_fun'] == 'binary':
                 loss_function = torch.nn.BCELoss()
+            pairwise_loss_function = torchmetrics.MeanSquaredError()
+            pairwise_loss_weight = config_list['pairwise_loss_weight']
+
         else:
             raise Exception(f"Cannot find the config file: {config_file}")
-            # node_input_dim = 8
-            # edge_input_dim = 16
-
-            # config_name = ckpts_dict["fold" + str(fold)]
-            # num_heads, num_layer, dp_rate, hidden_dim, mlp_dp_rate, loss_fun, lr, weight_decay = config_name.split('_')
-            # num_heads = int(num_heads)
-            # num_layer = int(num_layer)
-            # dp_rate = float(dp_rate)
-            # hidden_dim = int(hidden_dim)
-            # mlp_dp_rate = float(mlp_dp_rate)
-            # layer_norm = True
-            # learning_rate = float(lr)
-            # weight_decay = float(weight_decay)
-            # loss_function = torchmetrics.MeanSquaredError()
-            # if loss_fun == 'binary':
-            #     loss_function = torch.nn.BCELoss()
 
         test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
         test_loader = DataLoader(test_data,
@@ -192,9 +180,12 @@ def cli_main():
                     residual=True,
                     hidden_dim=hidden_dim,
                     mlp_dp_rate=mlp_dp_rate,
-                    check_pt_dir='',
-                    batch_size=512,
+                    check_pt_dir=ckpt_dir,
+                    batch_size=batch_size,
                     loss_function=loss_function,
+                    pairwise_loss_function=pairwise_loss_function,
+                    pairwise_loss_weight=pairwise_loss_weight,
+                    opt=opt,
                     learning_rate=learning_rate,
                     weight_decay=weight_decay)
 

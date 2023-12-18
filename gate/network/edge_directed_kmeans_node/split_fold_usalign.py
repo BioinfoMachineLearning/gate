@@ -196,6 +196,14 @@ def build_model_graph(targetname: str,
     else:
         enqa_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(enqa_scores).reshape(-1, 1))).float()
 
+    # d. gcpnet scores
+    gcpnet_score_file = score_dir + '/gcpnet_ema/' + targetname + '/' + targetname + '_esm_plddt.csv'
+    gcpnet_scores_df = pd.read_csv(gcpnet_score_file)
+    gcpnet_scores_dict = {k: v for k, v in zip(list(gcpnet_scores_df['model']), list(gcpnet_scores_df['score_norm']))}
+
+    gcpnet_scores = [gcpnet_scores_dict[model] for model in models]
+    gcpnet_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(gcpnet_scores).reshape(-1, 1))).float()
+
     # edge features
     # a. global fold similarity between two models
     # b. number of common interfaces
@@ -237,7 +245,7 @@ def build_model_graph(targetname: str,
                                     average_sim_mmalign_score_in_subgraph_feature, average_sim_mmalign_score_in_full_graph_feature,
                                     average_sim_qsscore_in_subgraph_feature, average_sim_qsscore_in_full_graph_feature,
                                     voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
-                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature])
+                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature, gcpnet_score_feature])
 
         edge_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_sim).reshape(-1, 1))).float()
         edge_mmalign_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_mmalign_sim).reshape(-1, 1))).float()

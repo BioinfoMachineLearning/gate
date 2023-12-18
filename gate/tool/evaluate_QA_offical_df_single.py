@@ -187,7 +187,7 @@ if __name__ == '__main__':
         print(' '.join(contents))
 
     print(f"Correlation\tSpear Correlation\tRanking loss\tMSE")
-    print(f"{np.mean(np.array(corrs))}\t{np.mean(np.array(spear_corrs))}\t{np.mean(np.array(losses))}\t{np.mean(np.array(mses))}")
+    print(f"{np.mean(np.array(corrs))} {np.mean(np.array(spear_corrs))} {np.mean(np.array(losses))} {np.mean(np.array(mses))}")
 
 
 

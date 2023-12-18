@@ -10,7 +10,10 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'pairwise_usalign', 'pairwise_qsscore', 'voro_scores', 'enqa']
+    QA_scores = ['alphafold', 'contact', 'dproqa', 'pairwise', 'pairwise_usalign', 
+                 'pairwise_qsscore', 'voro_scores', 'enqa', 
+                 'gcpnet_ema']
+
     if os.path.exists(args.indir + '/af_features'):
         QA_scores += ['af_features']
 
@@ -27,9 +30,31 @@ if __name__ == '__main__':
         pairwise_dict, pairwise_usalign_dict, pairwise_qsscore_dict = {}, {}, {}
         GNN_sum_score_dict, GNN_pcadscore_dict, voromqa_dark_dict = {}, {}, {}
         GNN_sum_score_norm_dict, GNN_pcadscore_norm_dict, voromqa_dark_norm_dict = {}, {}, {}
+        gcpnet_esm_plddt_dict, gcpnet_esm_plddt_norm_dict = {}, {}
+        gcpnet_noesm_dict, gcpnet_noesm_norm_dict = {}, {}
+        gcpnet_noplddt_dict, gcpnet_noplddt_norm_dict = {}, {}
 
         models_for_targets = None
         for QA_score in QA_scores:
+            if QA_score == 'gcpnet_ema':
+                for ema_score in ['esm_plddt', 'no_esm', 'no_plddt']:
+                    csv_file = f"{args.indir}/{QA_score}/{target}/{target}_{ema_score}.csv"
+                    df = pd.read_csv(csv_file)
+                    for i in range(len(df)):
+                        model = df.loc[i, 'model']
+                        score = df.loc[i, 'score']
+                        score_norm = df.loc[i, 'score_norm']
+                        if ema_score == 'esm_plddt':
+                            gcpnet_esm_plddt_dict[model] = score
+                            gcpnet_esm_plddt_norm_dict[model] = score_norm
+                        elif ema_score == 'no_esm':
+                            gcpnet_noesm_dict[model] = score
+                            gcpnet_noesm_norm_dict[model] = score_norm
+                        elif ema_score == 'no_plddt':
+                            gcpnet_noplddt_dict[model] = score
+                            gcpnet_noplddt_norm_dict[model] = score_norm
+                continue
+
             csv_file = f"{args.indir}/{QA_score}/{target}.csv"
             df = pd.read_csv(csv_file)
             if QA_score == 'alphafold':
@@ -100,6 +125,7 @@ if __name__ == '__main__':
                     af_iptm_dict[model] = df.loc[i, 'iptm']
                     af_num_inter_paes_dict[model] = df.loc[i, 'num_inter_pae']
                     af_pdockq_dict[model] = df.loc[i, 'mpDockQ/pDockQ']
+            
 
         data_dict = {'model': [], 
                     'pairwise': [], 'pairwise_usalign': [], 'pairwise_qsscore': [],
@@ -110,7 +136,10 @@ if __name__ == '__main__':
                     'dproqa': [], 'dproqa_norm': [],
                     'enqa': [], 'enqa_norm': [],           
                     'GNN_sum_score': [], 'GNN_pcadscore': [], 'voromqa_dark': [],
-                    'GNN_sum_score_norm': [], 'GNN_pcadscore_norm': [], 'voromqa_dark_norm': []}        
+                    'GNN_sum_score_norm': [], 'GNN_pcadscore_norm': [], 'voromqa_dark_norm': [],
+                    'gcpnet_esm_plddt': [], 'gcpnet_esm_plddt_norm': [],
+                    'gcpnet_noesm': [], 'gcpnet_noesm_norm': [],
+                    'gcpnet_noplddt': [], 'gcpnet_noplddt_norm': []}        
         
         for model in models_for_targets:
             data_dict['model'] += [model]
@@ -137,6 +166,13 @@ if __name__ == '__main__':
             data_dict['GNN_sum_score_norm'] += [GNN_sum_score_norm_dict[model]]
             data_dict['GNN_pcadscore_norm'] += [GNN_pcadscore_norm_dict[model]]
             data_dict['voromqa_dark_norm'] += [voromqa_dark_norm_dict[model]]
+
+            data_dict['gcpnet_esm_plddt'] += [gcpnet_esm_plddt_dict[model]]
+            data_dict['gcpnet_esm_plddt_norm'] += [gcpnet_esm_plddt_norm_dict[model]]
+            data_dict['gcpnet_noesm'] += [gcpnet_noesm_dict[model]]
+            data_dict['gcpnet_noesm_norm'] += [gcpnet_noesm_norm_dict[model]]
+            data_dict['gcpnet_noplddt'] += [gcpnet_noplddt_dict[model]]
+            data_dict['gcpnet_noplddt_norm'] += [gcpnet_noplddt_norm_dict[model]]
         
         pd.DataFrame(data_dict).to_csv(args.outdir + '/' + target + '.csv')
 

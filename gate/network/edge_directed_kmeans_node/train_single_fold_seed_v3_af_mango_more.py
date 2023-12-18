@@ -139,6 +139,7 @@ def objfunc(args_list):
 
         objective_evaluated.append(objective)
         
+        # print(hyper_par)
         end_time = time.time()
         print('objective:', objective, ' time:',end_time-start_time)
         
@@ -175,8 +176,6 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
     train_loss, valid_loss, val_target_mean_mse, val_target_median_mse = [], [], [], []
     val_target_mean_ranking_loss, val_target_median_ranking_loss = [], []
 
-    print(experiment_name)
-    
     if not os.path.exists(run_json_file):
 
         train_loader = DataLoader(train_data,

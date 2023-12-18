@@ -149,7 +149,7 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
                                 batch_size, ckpt_root_dir, targets_train_in_fold, targets_val_in_fold,
                                 subgraph_columns_dict, native_dfs_dict, log_train_mse, log_val_mse):
 
-    node_input_dim = 14 # 20 #18
+    node_input_dim = 15 # 20 #18
     edge_input_dim = 4 # 4 #3
     residual = True
     batch_norm = not layer_norm
