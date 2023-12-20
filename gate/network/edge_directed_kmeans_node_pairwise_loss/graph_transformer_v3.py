@@ -487,4 +487,3 @@ class Gate(L.LightningModule):
         self.log('test_target_mean_ranking_loss', np.mean(np.array(target_mean_ranking_loss)), on_epoch=True)
         self.log('test_target_median_ranking_loss', np.mean(np.array(target_median_ranking_loss)), on_epoch=True)
 
-                                                                                   
