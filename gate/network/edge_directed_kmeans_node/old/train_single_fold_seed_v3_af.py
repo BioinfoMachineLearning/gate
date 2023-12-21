@@ -218,8 +218,8 @@ def cli_main():
     ckpt_root_dir = workdir + '/ckpt/'
     os.makedirs(ckpt_root_dir, exist_ok=True)
 
-    node_input_dim = 26 # 20 #18
-    edge_input_dim = 5 # 4 #3
+    node_input_dim = 18 #26 # 20 #18
+    edge_input_dim = 4 #3
     residual = True
     for num_heads in [8]:
         for num_layer in [3, 4, 5]:
@@ -227,7 +227,7 @@ def cli_main():
                 for hidden_dim in [32]:
                     for mlp_dp_rate in [0.2, 0.3, 0.4]:
                         for loss_fun in ['mse']:#, 'binary']:
-                            for lr in [0.00001, 0.0001, 0.001]:
+                            for lr in [0.0001, 0.001]:
                                 for weight_decay in [0.01, 0.05]:
                                     for layer_norm in [False, True]:
                                         batch_norm = not layer_norm

@@ -140,7 +140,8 @@ class Gate(L.LightningModule):
         self.log_train_mse = log_train_mse
         self.log_val_mse = log_val_mse
 
-        self.learning_curve = {'train_loss_epoch': [], 'valid_loss': [], 
+        self.learning_curve = {'train_loss_epoch': [], 'train_ranking_loss_epoch': [],
+                        'valid_loss': [], 'valid_ranking_loss': [],
                         'val_target_mean_mse': [], 'val_target_median_mse': [],
                         'val_target_mean_ranking_loss': [], 'val_target_median_ranking_loss': []}
                         
@@ -185,21 +186,31 @@ class Gate(L.LightningModule):
         early_stop = L.pytorch.callbacks.EarlyStopping(monitor="valid_loss", mode="min", patience=15)
         return [checkpoint_callback, early_stop]
 
+    def cal_ranking_loss(self, output, true_scores, node_counts):
+        ranking_loss = 0.0
+        start_node_idx = 0
+        for node_count in node_counts:
+            pred_scores = output[start_node_idx:start_node_idx+node_count]
+            pred_scores = torch.squeeze(pred_scores, dim=1)
+            true_scores_in_graph = torch.squeeze(true_scores[start_node_idx:start_node_idx+node_count], dim=1)
+            start_node_idx += node_count
+            ranking_loss += torch.max(true_scores_in_graph) - true_scores_in_graph[torch.argmax(pred_scores)]
+
+        return ranking_loss / len(node_counts)
+
     def training_step(self, batch, batch_idx):
-        data, node_label, data_paths = batch
-        # print(data_paths)
-        # print(data.ndata['f'][0])
+
+        data, node_label, data_paths, node_counts = batch
+
         node_out = self(data, data.ndata['f'], data.edata['f'])
-        # print(node_out)
 
         node_loss = self.criterion_node(node_out, node_label)
-        # print(node_loss)
-        # edge_loss = self.criterion_edge(edge_out, edge_label)
-        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
+
+        ranking_loss = self.cal_ranking_loss(node_out, node_label, node_counts)
 
         self.log('train_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('train_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('train_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        self.log('train_ranking_loss', ranking_loss, on_epoch=True, batch_size=self.batch_size)
+
         if self.log_train_mse:
             self.training_step_data_paths.append(data_paths)
             self.training_step_outputs.append(node_out.cpu().data.numpy())
@@ -207,20 +218,16 @@ class Gate(L.LightningModule):
         return node_loss
     
     def validation_step(self, batch, batch_idx):
-        data, node_label, data_paths = batch
-        # print(data_paths)
-        # print(data.ndata['f'])
+        data, node_label, data_paths, node_counts = batch
+
         node_out = self(data, data.ndata['f'], data.edata['f'])
-        # print(node_out)
 
         node_loss = self.criterion_node(node_out, node_label)
-        # edge_loss = self.criterion_edge(edge_out, edge_label)
-        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
-        
-        self.log('valid_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
+        ranking_loss = self.cal_ranking_loss(node_out, node_label, node_counts)
 
+        self.log('valid_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
+        self.log('valid_ranking_loss', ranking_loss, on_epoch=True, batch_size=self.batch_size)
+        
         if self.log_val_mse:
             self.valid_step_data_paths.append(data_paths)
             self.valid_step_outputs.append(node_out.cpu().data.numpy())
@@ -228,31 +235,27 @@ class Gate(L.LightningModule):
         return node_loss
 
     def test_step(self, batch, batch_idx):
-        data, node_label, data_paths = batch
-        # print(data_paths)
-        # print(data.ndata['f'])
-        node_out = self(data, data.ndata['f'], data.edata['f'])
-        # print(node_out)
+        data, node_label, data_paths, node_counts = batch
 
+        node_out = self(data, data.ndata['f'], data.edata['f'])
+  
         node_loss = self.criterion_node(node_out, node_label)
-        # edge_loss = self.criterion_edge(edge_out, edge_label)
-        # loss = self.node_weight * node_loss + (1-self.node_weight) * edge_loss
+        ranking_loss = self.cal_ranking_loss(node_out, node_label, node_counts)
         
         self.log('test_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('valid_node_loss', node_loss, on_epoch=True, batch_size=self.batch_size)
-        # self.log('valid_edge_loss', edge_loss, on_epoch=True, batch_size=self.batch_size)
-
-        if self.log_val_mse:
-            self.test_step_data_paths.append(data_paths)
-            self.test_step_outputs.append(node_out.cpu().data.numpy())
+        self.log('test_ranking_loss', ranking_loss, on_epoch=True, batch_size=self.batch_size)
 
         return node_loss
 
     def on_train_epoch_end(self):
+        
         train_loss = self.trainer.callback_metrics.get('train_loss_epoch').item()
+        train_ranking_loss = self.trainer.callback_metrics.get('train_ranking_loss_epoch').item()
+
         # Append the losses to the lists
         self.learning_curve['train_loss_epoch'].append(train_loss)
-        
+        self.learning_curve['train_ranking_loss_epoch'].append(train_ranking_loss)
+
         if not self.log_train_mse:
             return
 
@@ -302,7 +305,10 @@ class Gate(L.LightningModule):
     def on_validation_epoch_end(self):
 
         valid_loss = self.trainer.callback_metrics.get('valid_loss').item()
+        valid_ranking_loss = self.trainer.callback_metrics.get('valid_ranking_loss').item()
+
         self.learning_curve['valid_loss'].append(valid_loss)
+        self.learning_curve['valid_ranking_loss'].append(valid_ranking_loss)
 
         if not self.log_val_mse:
             return

@@ -71,6 +71,10 @@ class DGLData(Dataset):
 def collate(samples):
     """Customer collate function"""
     graphs, node_labels, data_paths = zip(*samples)
+    node_counts = []
+    for graph in graphs:
+        node_counts += [graph.number_of_nodes()]
+
     batched_graphs = dgl.batch(graphs)
     batch_node_labels, batch_edge_labels = None, None
     for node_label in node_labels:
@@ -79,7 +83,7 @@ def collate(samples):
         else:
             batch_node_labels = np.concatenate((batch_node_labels, node_label), axis=None)
     
-    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), data_paths# , torch.tensor(batch_edge_labels).float().reshape(-1, 1)
+    return batched_graphs, torch.tensor(batch_node_labels).float().reshape(-1, 1), data_paths, node_counts
 
 def read_subgraph_columns(datadir, targets):
     subgraph_columns_dict = {}
@@ -175,6 +179,19 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
     train_loss, valid_loss, val_target_mean_mse, val_target_median_mse = [], [], [], []
     val_target_mean_ranking_loss, val_target_median_ranking_loss = [], []
 
+    if os.path.exists(run_json_file):
+        with open(run_json_file) as f:
+            data = json.load(f)
+            train_loss = np.array(data['train_loss'])
+            valid_loss = np.array(data['valid_loss'])
+            valid_ranking_loss = np.array(data['valid_ranking_loss'][1:])
+            val_target_mean_mse = np.array(data['val_target_mean_mse'])
+            val_target_median_mse = np.array(data['val_target_median_mse'])
+            val_target_mean_ranking_loss = np.array(data['val_target_mean_ranking_loss'])
+            val_target_median_ranking_loss = np.array(data['val_target_median_ranking_loss'])
+        if len(train_loss) <= 0:
+            os.system(f"rm {run_json_file}")
+
     if not os.path.exists(run_json_file):
 
         train_loader = DataLoader(train_data,
@@ -260,10 +277,12 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
         val_target_median_mse = model.learning_curve['val_target_median_mse']
         val_target_mean_ranking_loss = model.learning_curve['val_target_mean_ranking_loss']
         val_target_median_ranking_loss = model.learning_curve['val_target_median_ranking_loss']
+        valid_ranking_loss = model.learning_curve['valid_ranking_loss'][1:]
 
         with open(run_json_file, 'w') as f:
             f.write(json.dumps({'train_loss': train_loss, 
                                 'valid_loss': valid_loss,
+                                'valid_ranking_loss': valid_ranking_loss,
                                 'val_target_mean_mse': val_target_mean_mse,
                                 'val_target_median_mse': val_target_median_mse,
                                 'val_target_mean_ranking_loss': val_target_mean_ranking_loss,
@@ -274,6 +293,7 @@ def objective_graph_transformer(random_seed, projectname, workdir, train_data, v
             data = json.load(f)
             train_loss = np.array(data['train_loss'])
             valid_loss = np.array(data['valid_loss'])
+            valid_ranking_loss = np.array(data['valid_ranking_loss'][1:])
             val_target_mean_mse = np.array(data['val_target_mean_mse'])
             val_target_median_mse = np.array(data['val_target_median_mse'])
             val_target_mean_ranking_loss = np.array(data['val_target_mean_ranking_loss'])
