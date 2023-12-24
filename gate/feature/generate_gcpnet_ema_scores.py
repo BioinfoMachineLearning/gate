@@ -54,18 +54,20 @@ def generate_gcpnet_scores(indir: str,
 
         if not os.path.exists(resultfile):
             
+            os.system("rm /tmp/predicted_*.pdb")
+            
             config_out_dir = outdir + '/' + config_name
             os.makedirs(config_out_dir, exist_ok=True)
-
+            
             config = config_list[config_name]
             ckpt_path = config['ckpt_path']
             ablate_esm_embeddings = config['ablate_esm_embeddings']
             ablate_af2_plddt = config['ablate_af2_plddt']
 
             cmd = base_cmd + f"ckpt_path={ckpt_path} " \
-                            f"data.ablate_esm_embeddings={ablate_esm_embeddings} " \
-                            f"model.ablate_af2_plddt={ablate_af2_plddt} " \
-                            f"data.predict_output_dir={config_out_dir}"
+                             f"data.ablate_esm_embeddings={ablate_esm_embeddings} " \
+                             f"model.ablate_af2_plddt={ablate_af2_plddt} " \
+                             f"data.predict_output_dir={config_out_dir}"
             try:
                 os.system(cmd)
             except Exception as e:
@@ -83,11 +85,14 @@ def generate_gcpnet_scores(indir: str,
         model_info_df = pd.read_csv(model_csv)
         model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
 
+        pred_model_out_dir = outdir + '/' + config_name + '_pred_pdbs'
+        os.makedirs(pred_model_out_dir, exist_ok=True)
+
         df = pd.read_csv(resultfile)
         models = [] # list(df['MODEL'])
         scores = [] # list(df['PRED_DOCKQ'])
         scores_norm = []
-        for model, global_score in zip(list(df['input_annotated_pdb_filepath']), list(df['global_score'])):
+        for model, pred_model, global_score in zip(list(df['input_annotated_pdb_filepath']), list(df['predicted_annotated_pdb_filepath']), list(df['global_score'])):
             modelname = os.path.basename(model)
             modelname = modelname.replace('.pdb', '')
             if modelname not in model_size_ratio:
@@ -95,6 +100,7 @@ def generate_gcpnet_scores(indir: str,
             models += [modelname]
             scores += [global_score / 100]
             scores_norm += [global_score / 100 * float(model_size_ratio[modelname])]
+            os.system(f"cp {pred_model} {pred_model_out_dir}/{modelname}")
 
         for pdb in sorted(os.listdir(indir)):
             pdbname = pdb.replace('.pdb', '')

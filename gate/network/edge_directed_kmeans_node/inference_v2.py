@@ -92,7 +92,7 @@ def cli_main():
     ensemble_dict = {}
     for line in open(args.ckptfile):
         line = line.rstrip('\n')
-        foldname, runname, ckptname, valid_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
+        foldname, runname, ckptname, valid_loss, valid_ranking_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
         ckpts_dict[foldname] = ckptname
         if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
             if valid_target_mean_mse < valid_target_median_mse:

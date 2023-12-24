@@ -108,7 +108,7 @@ def cli_main():
     os.makedirs(savedir, exist_ok=True)
 
     for fold in range(10):
-        
+    # for fold in [5]:    
         dgldir = f"{args.outdir}/processed_data/dgl"
         labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
