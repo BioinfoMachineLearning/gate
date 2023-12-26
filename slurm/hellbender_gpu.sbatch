@@ -10,6 +10,8 @@
 #SBATCH --gres gpu:A100
 #SBATCH --job-name=JOBNAME
 #SBATCH --output=JOBNAME-%j.out  # %j is the unique jobID
+#SBATCH --mail-type=all
+#SBATCH --mail-user=jl4mc@umsystem.edu
 
 module load cuda/11.8.0
 

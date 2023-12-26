@@ -10,6 +10,8 @@
 #SBATCH --gres gpu:A100
 #SBATCH --job-name=directed_kmeans_v6_t2000_sim0.5_fold9
 #SBATCH --output=directed_kmeans_v6_t2000_sim0.5_fold9-%j.out  # %j is the unique jobID
+#SBATCH --mail-type=all
+#SBATCH --mail-user=jl4mc@umsystem.edu
 
 module load cuda/11.8.0
 
