@@ -235,11 +235,12 @@ def cli_main():
                     for pred_score in target_pred_subgraph_scores[target][modelname]:
                         fw.write(str(pred_score) + '\n')
                 mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
-                median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
-                if ensemble_dict[foldname] == "mean":
-                    ensemble_scores += [mean_score]
-                else:
-                    ensemble_scores += [median_score]
+                ensemble_scores += [mean_score]
+                # median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
+                # if ensemble_dict[f"fold{fold}"] == "mean":
+                #     ensemble_scores += [mean_score]
+                # else:
+                #     ensemble_scores += [median_score]
                     
                 ensemble_count += [len(target_pred_subgraph_scores[target][modelname])]
                 std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]

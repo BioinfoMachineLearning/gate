@@ -81,6 +81,8 @@ if __name__ == '__main__':
 
                 prediction = args.indirs + '/' + indir + '/' + target
                 # print(prediction)
+                if not os.path.exists(prediction):
+                    continue
                 
                 # print(prediction)
                 pred_df = pd.read_csv(prediction)
@@ -169,7 +171,7 @@ if __name__ == '__main__':
         #print('\t'.join(targets))
 
         corrs_print, spear_corrs_print, losses_print, mses_print = [], [], [], []
-        for i in range(len(os.listdir(args.nativedir))):
+        for i in range(len(group_res[args.field]['corrs'])):
             contents = []
             contents += [group_res[args.field]['corrs'][i]]
             corrs_print += [float(group_res[args.field]['corrs'][i])]

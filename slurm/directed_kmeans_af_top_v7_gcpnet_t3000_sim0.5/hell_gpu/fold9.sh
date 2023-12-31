@@ -4,8 +4,8 @@
 #-------------------------------------------------------------------------------
 ## resources
 #SBATCH --partition gpu
-#SBATCH --ntasks-per-node=16  # cores per task
-#SBATCH --mem=50G  # memory per core (default is 1GB/core)
+#SBATCH --ntasks-per-node=4  # cores per task
+#SBATCH --mem=70G  # memory per core (default is 1GB/core)
 #SBATCH --time 2-00:00     # days-hours:minutes time 
 #SBATCH --gres gpu:A100
 #SBATCH --job-name=directed_kmeans_af_top_v7_gcpnet_t3000_sim0.5_fold9

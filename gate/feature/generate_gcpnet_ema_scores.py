@@ -23,7 +23,7 @@ def generate_gcpnet_scores(indir: str,
         os.system(f"cp {indir}/{pdb} {modeldir}/{pdb}.pdb")
 
     base_cmd = f"python {GCPNET_EMA_program} " \
-                f"model=gcpnet_ema data=ema data.predict_batch_size=1 data.num_workers=8 " \
+                f"model=gcpnet_ema data=ema data.predict_batch_size=1 data.num_workers=16 " \
                 f"data.python_exec_path=/home/jl4mc/mambaforge/envs/gcpnet/bin/python " \
                 f"data.lddt_exec_path=/home/jl4mc/mambaforge/envs/gcpnet/bin/lddt " \
                 f"data.pdbtools_dir=/home/jl4mc/mambaforge/envs/gcpnet/lib/python3.10/site-packages/pdbtools/ " \
@@ -80,6 +80,9 @@ def generate_gcpnet_scores(indir: str,
             os.system(f"cp {config_out_dir}/result.csv {resultfile}")
 
         if not os.path.exists(model_csv):
+            continue
+        
+        if os.path.exists(f"{outdir}/{targetname}_{config_name}.csv"):
             continue
             
         model_info_df = pd.read_csv(model_csv)

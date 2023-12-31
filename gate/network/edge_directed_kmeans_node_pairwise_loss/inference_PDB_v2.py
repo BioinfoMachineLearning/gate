@@ -11,7 +11,7 @@ from typing import List, Union
 from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from graph_transformer_v2 import Gate
+from graph_transformer_v3 import Gate
 import lightning as L
 from torch.utils.data import Dataset
 from argparse import ArgumentParser
@@ -92,25 +92,26 @@ def cli_main():
     ensemble_dict = {}
     for line in open(args.ckptfile):
         line = line.rstrip('\n')
-        foldname, runname, ckptname, valid_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
+        foldname, runname, ckptname, valid_loss, valid_node_loss, valid_pairwise_loss, valid_ranking_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
         ckpts_dict[foldname] = ckptname
-        if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
-            if valid_target_mean_mse < valid_target_median_mse:
-                ensemble_dict[foldname] = 'mean'
-            else:
-                ensemble_dict[foldname] = 'median'
-        elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
-            ensemble_dict[foldname] = 'mean'
-        else:
-            ensemble_dict[foldname] = 'median'
 
     savedir = args.outdir + '/predictions/' + args.prefix
     os.makedirs(savedir, exist_ok=True)
 
+    lines = open(f"{args.outdir}/fold0/targets.list").readlines()
+    targets_train_in_fold = lines[0].split()
+    targets_val_in_fold = lines[1].split()
+    targets_test_in_fold = lines[2].split()
+    targets = sorted(targets_train_in_fold + targets_val_in_fold + targets_test_in_fold)
+    print(f"Test targets:")
+    print(targets)
+
+    dgldir = f"{args.outdir}/processed_data/dgl"
+    labeldir = f"{args.outdir}/processed_data/label"
+    test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets)
+
     for fold in range(10):
         
-        dgldir = f"{args.outdir}/processed_data/dgl"
-        labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
         ckpt_dir = f"{args.ckptdir}/fold{fold}/ckpt/" + ckpts_dict["fold" + str(fold)] 
         if len(os.listdir(ckpt_dir)) == 0:
@@ -126,18 +127,10 @@ def cli_main():
             break
 
         print(ckptfile)
-        
-        lines = open(folddir + '/targets.list').readlines()
-
-        targets_test_in_fold = lines[2].split()
 
         print(f"Fold {fold}:")
-
-        print(f"Test targets:")
-        print(targets_test_in_fold)
         
         config_file = ckpt_dir + '/config.json'
-
         if os.path.exists(config_file):
             with open(config_file) as f:
                 config_list = json.load(f)
@@ -149,32 +142,19 @@ def cli_main():
             hidden_dim = config_list['hidden_dim']
             mlp_dp_rate = config_list['mlp_dp_rate']
             layer_norm = config_list['layer_norm']
+            opt = config_list['opt']
             learning_rate = config_list['lr']
             weight_decay = config_list['weight_decay']
             loss_function = torchmetrics.MeanSquaredError()
             batch_size = config_list['batch_size']
             if config_list['loss_fun'] == 'binary':
                 loss_function = torch.nn.BCELoss()
+            pairwise_loss_function = torchmetrics.MeanSquaredError()
+            pairwise_loss_weight = config_list['pairwise_loss_weight']
+
         else:
             raise Exception(f"Cannot find the config file: {config_file}")
-            # node_input_dim = 8
-            # edge_input_dim = 16
 
-            # config_name = ckpts_dict["fold" + str(fold)]
-            # num_heads, num_layer, dp_rate, hidden_dim, mlp_dp_rate, loss_fun, lr, weight_decay = config_name.split('_')
-            # num_heads = int(num_heads)
-            # num_layer = int(num_layer)
-            # dp_rate = float(dp_rate)
-            # hidden_dim = int(hidden_dim)
-            # mlp_dp_rate = float(mlp_dp_rate)
-            # layer_norm = True
-            # learning_rate = float(lr)
-            # weight_decay = float(weight_decay)
-            # loss_function = torchmetrics.MeanSquaredError()
-            # if loss_fun == 'binary':
-            #     loss_function = torch.nn.BCELoss()
-
-        test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
         test_loader = DataLoader(test_data,
                                 batch_size=batch_size,
                                 num_workers=32,
@@ -192,9 +172,12 @@ def cli_main():
                     residual=True,
                     hidden_dim=hidden_dim,
                     mlp_dp_rate=mlp_dp_rate,
-                    check_pt_dir='',
-                    batch_size=512,
+                    check_pt_dir=ckpt_dir,
+                    batch_size=batch_size,
                     loss_function=loss_function,
+                    pairwise_loss_function=pairwise_loss_function,
+                    pairwise_loss_weight=pairwise_loss_weight,
+                    opt=opt,
                     learning_rate=learning_rate,
                     weight_decay=weight_decay)
 
@@ -206,6 +189,9 @@ def cli_main():
         model = model.to(device)
 
         model.eval()
+
+        save_fold_dir = savedir + '/fold' + str(fold)
+        os.makedirs(save_fold_dir, exist_ok=True)
 
         target_pred_subgraph_scores = {}
         for idx, (batch_graphs, labels, data_paths) in enumerate(test_loader):
@@ -235,29 +221,24 @@ def cli_main():
                     target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
                 start_idx += len(subgraph_df.columns)
 
-        foldname = f"fold{fold}"
-        for target in targets_test_in_fold:
+        for target in targets:
             ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
             for modelname in target_pred_subgraph_scores[target]:
                 target_pred_outdir = folddir + '/' + target
                 os.makedirs(target_pred_outdir, exist_ok=True)
-                # with open(target_pred_outdir + '/' + modelname, 'w') as fw:
-                #     for pred_score in target_pred_subgraph_scores[target][modelname]:
-                #         fw.write(str(pred_score) + '\n')
-                mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
-                median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
-                if ensemble_dict[foldname] == "mean":
-                    ensemble_scores += [mean_score]
-                else:
-                    ensemble_scores += [median_score]
+                with open(target_pred_outdir + '/' + modelname, 'w') as fw:
+                    for pred_score in target_pred_subgraph_scores[target][modelname]:
+                        fw.write(str(pred_score) + '\n')
+                mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))           
+                ensemble_scores += [mean_score]
                     
                 ensemble_count += [len(target_pred_subgraph_scores[target][modelname])]
                 std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]
                 normalized_std += [np.std(np.array(target_pred_subgraph_scores[target][modelname])) / mean_score]
             pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'score': ensemble_scores, 
-                          'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(savedir + '/' + target + '.csv')
+                          'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(save_fold_dir + '/' + target + '.csv')
 
-    
+        os.system(f"touch {save_fold_dir}/DONE")
 
 if __name__ == '__main__':
     cli_main()

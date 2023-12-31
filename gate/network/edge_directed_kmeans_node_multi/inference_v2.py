@@ -93,15 +93,6 @@ def cli_main():
         line = line.rstrip('\n')
         foldname, ckptname, valid_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
         ckpts_dict[foldname] = ckptname
-        if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
-            if valid_target_mean_mse < valid_target_median_mse:
-                ensemble_dict[foldname] = 'mean'
-            else:
-                ensemble_dict[foldname] = 'median'
-        elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
-            ensemble_dict[foldname] = 'mean'
-        else:
-            ensemble_dict[foldname] = 'median'
 
     for fold in range(10):
         
@@ -239,12 +230,8 @@ def cli_main():
                     for pred_score in target_pred_subgraph_scores[target][modelname]:
                         fw.write(str(pred_score) + '\n')
                 mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
-                median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
-                if ensemble_dict[foldname] == "mean":
-                    ensemble_scores += [mean_score]
-                else:
-                    ensemble_scores += [median_score]
-                    
+                ensemble_scores += [mean_score]
+ 
                 ensemble_count += [len(target_pred_subgraph_scores[target][modelname])]
                 std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]
                 normalized_std += [np.std(np.array(target_pred_subgraph_scores[target][modelname])) / mean_score]

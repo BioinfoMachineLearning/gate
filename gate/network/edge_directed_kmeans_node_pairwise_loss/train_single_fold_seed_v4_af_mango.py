@@ -190,14 +190,14 @@ def objective_graph_transformer(hyper_par):
 
         train_loader = DataLoader(train_data,
                                 batch_size=batch_size,
-                                num_workers=32,
+                                num_workers=16,
                                 pin_memory=True,
                                 collate_fn=collate,
                                 shuffle=True)
         
         val_loader = DataLoader(val_data,
                                 batch_size=batch_size,
-                                num_workers=32,
+                                num_workers=16,
                                 pin_memory=True,
                                 collate_fn=collate,
                                 shuffle=False)

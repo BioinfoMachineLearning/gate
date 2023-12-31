@@ -47,38 +47,40 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
-    parser.add_argument('--folddir', type=str, required=True)
     parser.add_argument('--nativedir', type=str, required=True)
-    parser.add_argument('--field', type=str, default='score', required=False)
+    parser.add_argument('--outdir', type=str, required=True)
+    parser.add_argument('--field', type=str, required=False)
+    parser.add_argument('--ascending', type=bool, default=False, required=False)
+    parser.add_argument('--nativefield', type=str, default='dockq_wave', required=False)
 
     args = parser.parse_args()
 
-    for fold in range(10):
-        folddir = f"{args.folddir}/fold{fold}"
-        lines = open(folddir + '/targets.list').readlines()
-        targets_test_in_fold = lines[2].split()
-        print(f"Fold {fold}:")
-        print(f"Test targets:")
-        print(targets_test_in_fold)
-
+    scorefile = args.indir + '/' + os.listdir(args.indir)[0]
+    if args.field is None:
+        group_ids = pd.read_csv(scorefile).columns[2:]
+    else:
+        group_ids = [args.field]
+    print(group_ids)
+    group_res = {}
+    for group_id in group_ids:
+        # print(group_id)
         corrs = []
         spear_corrs = []
-        best_tmscores = []
+        best_scores = []
         losses = []
-        max_tmscores = []
         MSEs = []
-
-        for targetname in targets_test_in_fold:
-
-            native_df = pd.read_csv(args.nativedir + '/' + targetname + '.csv')
+        for target in sorted(os.listdir(args.nativedir)):
+            native_df = pd.read_csv(args.nativedir + '/' + target)
+            # print(native_df)
+            targetname = target.replace('.csv', '')
 
             scores_dict = {}
             for i in range(len(native_df)):
-                scores_dict[native_df.loc[i, 'model']] = float(native_df.loc[i,'tmscore'])
+                scores_dict[native_df.loc[i, 'model']] = float(native_df.loc[i,args.nativefield])
 
-            true_tmscores = native_df['tmscore']
+            true_scores = native_df[args.nativefield]
 
-            prediction = args.indir + '/' + targetname + '.csv'
+            prediction = args.indir + '/' + target
             # print(prediction)
             
             # print(prediction)
@@ -87,13 +89,12 @@ if __name__ == '__main__':
             if pred_df is None or len(pred_df) == 0:
                 corrs += ["0"]
                 spear_corrs += ["0"]
-                losses += [str(np.max(np.array(true_tmscores)))]
-                best_tmscores += [np.max(np.array(true_tmscores))]
-                max_tmscores += ["0"]
+                losses += [str(np.max(np.array(true_scores)))]
+                best_scores += [np.max(np.array(true_scores))]
                 MSEs += ["-1"]
                 continue
 
-            pred_df = pred_df.sort_values(by=[args.field], ascending=False)
+            pred_df = pred_df.sort_values(by=[group_id], ascending=args.ascending)
             pred_df.reset_index(inplace=True)
             # print(pred_df)
 
@@ -105,7 +106,7 @@ if __name__ == '__main__':
                     continue
 
                 true_score = scores_dict[model]
-                scores_filt += [float(pred_df.loc[i, args.field])]
+                scores_filt += [float(pred_df.loc[i, group_id])]
                 scores_true += [true_score]
 
             # print(scores_filt)
@@ -114,9 +115,8 @@ if __name__ == '__main__':
             if len(scores_filt) == 0:
                 corrs += ["0"]
                 spear_corrs += ["0"]
-                losses += [str(np.max(np.array(true_tmscores)))]
-                best_tmscores += [np.max(np.array(true_tmscores))]
-                max_tmscores += ["0"]
+                losses += [str(np.max(np.array(true_scores)))]
+                best_scores += [np.max(np.array(true_scores))]
                 MSEs += ["-1"]
                 continue
 
@@ -137,35 +137,38 @@ if __name__ == '__main__':
             if top1_model not in scores_dict:
                 corrs += ["0"]
                 spear_corrs += ["0"]
-                losses += [str(np.max(np.array(true_tmscores)))]
-                best_tmscores += [np.max(np.array(true_tmscores))]
-                max_tmscores += ["0"]
+                losses += [str(np.max(np.array(true_scores)))]
+                best_scores += [np.max(np.array(true_scores))]
                 MSEs += ["-1"]
                 continue
                 # raise Exception(f"Cannot find the {scorefile} for {top1_model}!")
-            # print(top1_model)
-            # print(np.max(np.array(true_tmscores)))
-            # print(scores_dict[top1_model])
+            
+            best_top1_score = float(scores_dict[top1_model])
+            loss = float(np.max(np.array(true_scores))) - best_top1_score
+            corrs += [str(corr)]
+            spear_corrs += [str(spear_corr)]
+            losses += [str(loss)]
+            best_scores += [str(float(np.max(np.array(scores_true))))]
+            MSEs += [str(mse)]
 
-            # best_top1_tmscore = np.max(np.array([float(scores_dict[top1_model]) for top1_model in top1_models]))
-            best_top1_tmscore = float(scores_dict[top1_model])
-            loss = float(np.max(np.array(true_tmscores))) - best_top1_tmscore
-            corrs += [corr]
-            spear_corrs += [spear_corr]
-            losses += [loss]
-            best_tmscores += [float(np.max(np.array(scores_true)))]
-            max_tmscores += [best_top1_tmscore]
-            MSEs += [mse]
+        group_res[group_id] = dict(corrs=corrs, spear_corrs=spear_corrs, losses=losses, 
+                                   best_scores=best_scores, 
+                                   MSEs=MSEs)
 
-        for i in range(len(targets_test_in_fold)):
-            contents = []
-            contents += [str(corrs[i])]
-            contents += [str(spear_corrs[i])]
-            contents += [str(losses[i])]
-            contents += [str(MSEs[i])]   
-            print(' '.join(contents))
-        print("Correlation\tSpear Correlation\tRanking loss\tMSE")
-        print(f"Average: {np.mean(corrs)}\t{np.mean(spear_corrs)}\t{np.mean(losses)}\t{np.mean(MSEs)}")
+    group_ids = [key for key in group_res]
+    print('    '.join(group_ids))
+    
+    targets = [target.rstrip('.csv') for target in sorted(os.listdir(args.nativedir))]
+    print('\t'.join(targets))
+
+    for i in range(len(os.listdir(args.nativedir))):
+        contents = []
+        for group_id in group_res:
+            contents += [group_res[group_id]['corrs'][i]]
+            contents += [group_res[group_id]['spear_corrs'][i]]
+            contents += [group_res[group_id]['losses'][i]]
+            contents += [group_res[group_id]['MSEs'][i]]
+        print(' '.join(contents))
 
 
 

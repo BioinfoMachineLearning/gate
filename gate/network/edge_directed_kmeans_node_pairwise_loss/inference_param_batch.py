@@ -91,7 +91,7 @@ def cli_main():
     labeldir = f"{args.outdir}/processed_data/label"
 
     df = pd.read_csv(args.ckptfile)
-    ckptnames = list(df['param'])
+    ckptnames = list(df['ckptdir'])
     print(ckptnames)
     for ckptname in ckptnames:
         print(ckptname)
@@ -101,9 +101,9 @@ def cli_main():
         if os.path.exists(savedir + '/DONE'):
             continue
 
-        for fold in range(10):
+        for fold in [6]:
             folddir = f"{args.outdir}/fold{fold}"
-            ckpt_dir = f"{args.ckptdir}/ckpt/{ckptname}/fold{fold}"
+            ckpt_dir = f"{args.ckptdir}/{ckptname}"
             if len(os.listdir(ckpt_dir)) == 0:
                 raise Exception(f"cannot find any check points in {ckpt_dir}")
 
@@ -139,21 +139,23 @@ def cli_main():
                 hidden_dim = config_list['hidden_dim']
                 mlp_dp_rate = config_list['mlp_dp_rate']
                 layer_norm = config_list['layer_norm']
+                opt = config_list['opt']
                 learning_rate = config_list['lr']
                 weight_decay = config_list['weight_decay']
                 loss_function = torchmetrics.MeanSquaredError()
                 batch_size = config_list['batch_size']
-                pairwise_loss_weight = config_list['pairwise_loss_weight']
                 if config_list['loss_fun'] == 'binary':
                     loss_function = torch.nn.BCELoss()
                 pairwise_loss_function = torchmetrics.MeanSquaredError()
+                pairwise_loss_weight = config_list['pairwise_loss_weight']
+
             else:
                 raise Exception(f"Cannot find the config file: {config_file}")
 
             test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
             test_loader = DataLoader(test_data,
                                     batch_size=batch_size,
-                                    num_workers=16,
+                                    num_workers=32,
                                     pin_memory=True,
                                     collate_fn=collate,
                                     shuffle=False)
@@ -173,6 +175,7 @@ def cli_main():
                         loss_function=loss_function,
                         pairwise_loss_function=pairwise_loss_function,
                         pairwise_loss_weight=pairwise_loss_weight,
+                        opt=opt,
                         learning_rate=learning_rate,
                         weight_decay=weight_decay)
 

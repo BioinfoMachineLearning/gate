@@ -5,8 +5,8 @@
 ## resources
 #SBATCH --partition=chengji-lab-gpu
 #SBATCH --account=chengji-lab
-#SBATCH --ntasks-per-node=16  # cores per task
-#SBATCH --mem=50G  # memory per core (default is 1GB/core)
+#SBATCH --ntasks-per-node=4  # cores per task
+#SBATCH --mem=60G  # memory per core (default is 1GB/core)
 #SBATCH --time 5-00:00     # days-hours:minutes time
 #SBATCH --gres gpu:A100
 #SBATCH --job-name=directed_kmeans_af_top_v7_gcpnet_t3000_sim0.5_fold1
