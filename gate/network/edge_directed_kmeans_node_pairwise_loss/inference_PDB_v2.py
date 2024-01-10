@@ -94,6 +94,15 @@ def cli_main():
         line = line.rstrip('\n')
         foldname, runname, ckptname, valid_loss, valid_node_loss, valid_pairwise_loss, valid_ranking_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
         ckpts_dict[foldname] = ckptname
+        if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
+            if valid_target_mean_mse < valid_target_median_mse:
+                ensemble_dict[foldname] = 'mean'
+            else:
+                ensemble_dict[foldname] = 'median'
+        elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
+            ensemble_dict[foldname] = 'mean'
+        else:
+            ensemble_dict[foldname] = 'median'
 
     savedir = args.outdir + '/predictions/' + args.prefix
     os.makedirs(savedir, exist_ok=True)
@@ -221,16 +230,21 @@ def cli_main():
                     target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
                 start_idx += len(subgraph_df.columns)
 
+        foldname = f"fold{fold}"
         for target in targets:
             ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
             for modelname in target_pred_subgraph_scores[target]:
                 target_pred_outdir = folddir + '/' + target
                 os.makedirs(target_pred_outdir, exist_ok=True)
-                with open(target_pred_outdir + '/' + modelname, 'w') as fw:
-                    for pred_score in target_pred_subgraph_scores[target][modelname]:
-                        fw.write(str(pred_score) + '\n')
-                mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))           
-                ensemble_scores += [mean_score]
+                # with open(target_pred_outdir + '/' + modelname, 'w') as fw:
+                #     for pred_score in target_pred_subgraph_scores[target][modelname]:
+                #         fw.write(str(pred_score) + '\n')
+                mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname])) 
+                median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
+                if ensemble_dict[foldname] == "mean":
+                    ensemble_scores += [mean_score]
+                else:
+                    ensemble_scores += [median_score]
                     
                 ensemble_count += [len(target_pred_subgraph_scores[target][modelname])]
                 std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]

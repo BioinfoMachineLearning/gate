@@ -246,6 +246,7 @@ def cli_main():
                 #         fw.write(str(pred_score) + '\n')
                 mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
                 median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
+                # ensemble_scores += [mean_score]
                 if ensemble_dict[foldname] == "mean":
                     ensemble_scores += [mean_score]
                 else:

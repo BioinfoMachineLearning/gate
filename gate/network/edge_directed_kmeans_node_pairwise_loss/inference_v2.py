@@ -108,7 +108,7 @@ def cli_main():
     os.makedirs(savedir, exist_ok=True)
 
     for fold in range(10):
-    # for fold in [5]:    
+    #for fold in [5]:    
         dgldir = f"{args.outdir}/processed_data/dgl"
         labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
@@ -226,21 +226,23 @@ def cli_main():
                     target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
                 start_idx += len(subgraph_df.columns)
 
+        foldname = f"fold{fold}"
         for target in targets_test_in_fold:
             ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
             for modelname in target_pred_subgraph_scores[target]:
                 target_pred_outdir = folddir + '/' + target
                 os.makedirs(target_pred_outdir, exist_ok=True)
-                with open(target_pred_outdir + '/' + modelname, 'w') as fw:
-                    for pred_score in target_pred_subgraph_scores[target][modelname]:
-                        fw.write(str(pred_score) + '\n')
+                # with open(target_pred_outdir + '/' + modelname, 'w') as fw:
+                #     for pred_score in target_pred_subgraph_scores[target][modelname]:
+                #         fw.write(str(pred_score) + '\n')
                 mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
-                ensemble_scores += [mean_score]
-                # median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
-                # if ensemble_dict[f"fold{fold}"] == "mean":
-                #     ensemble_scores += [mean_score]
-                # else:
-                #     ensemble_scores += [median_score]
+                # ensemble_scores += [mean_score]
+                median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
+                #ensemble_scores += [mean_score]
+                if ensemble_dict[f"fold{fold}"] == "mean":
+                    ensemble_scores += [mean_score]
+                else:
+                    ensemble_scores += [median_score]
                     
                 ensemble_count += [len(target_pred_subgraph_scores[target][modelname])]
                 std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]

@@ -264,7 +264,7 @@ def build_model_graph(targetname: str,
                                     average_sim_mmalign_score_in_subgraph_feature, average_sim_mmalign_score_in_full_graph_feature,
                                     average_sim_qsscore_in_subgraph_feature, average_sim_qsscore_in_full_graph_feature,
                                     voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
-                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature])
+                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature, gcpnet_score_feature])
 
     dgl.save_graphs(filename=os.path.join(out, f'{filename}.dgl'), g_list=graph)
     # print(f'{filename}\nSUCCESS')

@@ -240,14 +240,15 @@ def cli_main():
                     target_pred_subgraph_scores[targetname][modelname] += [pred_scores[start_idx + i]]
                 start_idx += len(subgraph_df.columns)
 
+        foldname = f"fold{fold}"
         for target in targets:
             ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
             for modelname in target_pred_subgraph_scores[target]:
                 target_pred_outdir = folddir + '/' + target
                 os.makedirs(target_pred_outdir, exist_ok=True)
-                with open(target_pred_outdir + '/' + modelname, 'w') as fw:
-                    for pred_score in target_pred_subgraph_scores[target][modelname]:
-                        fw.write(str(pred_score) + '\n')
+                # with open(target_pred_outdir + '/' + modelname, 'w') as fw:
+                #     for pred_score in target_pred_subgraph_scores[target][modelname]:
+                #         fw.write(str(pred_score) + '\n')
                 mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
                 median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
                 if ensemble_dict[foldname] == "mean":
