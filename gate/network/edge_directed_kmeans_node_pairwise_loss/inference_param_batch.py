@@ -81,29 +81,70 @@ def cli_main():
     parser.add_argument('--datadir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--ckptdir', type=str, required=True)
-    parser.add_argument('--ckptfile', type=str, required=True)
+    parser.add_argument('--ckptfiledir', type=str, required=True)
 
     args = parser.parse_args()
 
     device = torch.device('cuda')  # set cuda device
 
-    dgldir = f"{args.outdir}/processed_data/dgl"
-    labeldir = f"{args.outdir}/processed_data/label"
+    savedir = args.outdir + '/predictions/'
+    os.makedirs(savedir, exist_ok=True)
 
-    df = pd.read_csv(args.ckptfile)
-    ckptnames = list(df['ckptdir'])
-    print(ckptnames)
-    for ckptname in ckptnames:
-        print(ckptname)
-        savedir = args.outdir + '/predictions/' + ckptname
-        os.makedirs(savedir, exist_ok=True)
+    for fold in range(10):
+    #for fold in [5]:    
+        msefile = f"{args.ckptfiledir}/fold{fold}/mse.csv"
+        df = pd.read_csv(msefile)
+        ckptnames = list(df['ckptdir'])
 
-        if os.path.exists(savedir + '/DONE'):
-            continue
+        dgldir = f"{args.outdir}/processed_data/dgl"
+        labeldir = f"{args.outdir}/processed_data/label"
+        folddir = f"{args.outdir}/fold{fold}"
 
-        for fold in [6]:
-            folddir = f"{args.outdir}/fold{fold}"
-            ckpt_dir = f"{args.ckptdir}/{ckptname}"
+        lines = open(folddir + '/targets.list').readlines()
+
+        targets_test_in_fold = lines[2].split()
+
+        print(f"Fold {fold}:")
+
+        print(f"Test targets:")
+        print(targets_test_in_fold)
+        
+        savefolddir= savedir + f'/fold{fold}'
+        os.makedirs(savefolddir, exist_ok=True)
+
+        ensemble_dict = {}
+        for i in range(len(df)):
+            ckptname = df.loc[i, 'ckptdir']
+            valid_target_mean_ranking_loss = df.loc[i, 'val_target_mean_ranking_loss']
+            valid_target_median_ranking_loss = df.loc[i, 'val_target_median_ranking_loss']
+            valid_target_mean_mse = df.loc[i, 'val_target_mean_mse']
+            valid_target_median_mse = df.loc[i, 'val_target_median_mse']
+
+            if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
+                if valid_target_mean_mse < valid_target_median_mse:
+                    ensemble_dict[ckptname] = 'mean'
+                else:
+                    ensemble_dict[ckptname] = 'median'
+            elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
+                ensemble_dict[ckptname] = 'mean'
+            else:
+                ensemble_dict[ckptname] = 'median'
+
+        for ckptname in ckptnames:
+
+            savefoldckptdir = savefolddir + '/' + ckptname
+            os.makedirs(savefoldckptdir, exist_ok=True)
+
+            bRun = False
+            for target in targets_test_in_fold:
+                if not os.path.exists(savefoldckptdir + '/' + target + '.csv'):
+                    bRun = True
+                    break
+            
+            if not bRun:
+                continue
+
+            ckpt_dir = f"{args.ckptdir}/fold{fold}/ckpt/" + ckptname
             if len(os.listdir(ckpt_dir)) == 0:
                 raise Exception(f"cannot find any check points in {ckpt_dir}")
 
@@ -113,19 +154,11 @@ def cli_main():
             for ckptfile in os.listdir(ckpt_dir):
                 if ckptfile.find('.ckpt') < 0:
                     continue
+                ckpt_path = ckpt_dir + '/' + ckptfile
                 break
 
-            print(ckptfile)
-            
-            lines = open(folddir + '/targets.list').readlines()
-
-            targets_test_in_fold = lines[2].split()
-
-            print(f"Fold {fold}:")
-
-            print(f"Test targets:")
-            print(targets_test_in_fold)
-            
+            print(ckpt_path)
+               
             config_file = ckpt_dir + '/config.json'
 
             if os.path.exists(config_file):
@@ -154,11 +187,11 @@ def cli_main():
 
             test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
             test_loader = DataLoader(test_data,
-                                    batch_size=batch_size,
-                                    num_workers=32,
-                                    pin_memory=True,
-                                    collate_fn=collate,
-                                    shuffle=False)
+                                batch_size=batch_size,
+                                num_workers=8,
+                                pin_memory=True,
+                                collate_fn=collate,
+                                shuffle=False)
 
             model = Gate(node_input_dim=node_input_dim,
                         edge_input_dim=edge_input_dim,
@@ -178,11 +211,8 @@ def cli_main():
                         opt=opt,
                         learning_rate=learning_rate,
                         weight_decay=weight_decay)
-
-            ckpt_path = ckpt_dir + '/' + ckptfile
-            print(ckpt_path)
             
-            model = model.load_from_checkpoint(ckpt_path, loss_function=loss_function, pairwise_loss_function=pairwise_loss_function)
+            model = model.load_from_checkpoint(ckpt_path, loss_function=loss_function)
 
             model = model.to(device)
 
@@ -221,25 +251,25 @@ def cli_main():
                 for modelname in target_pred_subgraph_scores[target]:
                     target_pred_outdir = folddir + '/' + target
                     os.makedirs(target_pred_outdir, exist_ok=True)
-                    with open(target_pred_outdir + '/' + modelname, 'w') as fw:
-                        for pred_score in target_pred_subgraph_scores[target][modelname]:
-                            fw.write(str(pred_score) + '\n')
+                    # with open(target_pred_outdir + '/' + modelname, 'w') as fw:
+                    #     for pred_score in target_pred_subgraph_scores[target][modelname]:
+                    #         fw.write(str(pred_score) + '\n')
                     mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
+                    # ensemble_scores += [mean_score]
                     median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
-                    ensemble_scores += [mean_score]
-                    # if ensemble_dict[foldname] == "mean":
-                    #     ensemble_scores += [mean_score]
-                    # else:
-                    #     ensemble_scores += [median_score]
+                    #ensemble_scores += [mean_score]
+                    if ensemble_dict[ckptname] == "mean":
+                        ensemble_scores += [mean_score]
+                    else:
+                        ensemble_scores += [median_score]
                         
                     ensemble_count += [len(target_pred_subgraph_scores[target][modelname])]
                     std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]
                     normalized_std += [np.std(np.array(target_pred_subgraph_scores[target][modelname])) / mean_score]
                 pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'score': ensemble_scores, 
-                            'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(savedir + '/' + target + '.csv')
-                            
-            os.system(f"touch {savedir}/DONE")
-        
+                            'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(savefoldckptdir + '/' + target + '.csv')
+
+    
 
 if __name__ == '__main__':
     cli_main()
