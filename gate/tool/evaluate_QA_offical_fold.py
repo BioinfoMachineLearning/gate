@@ -50,6 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--folddir', type=str, required=True)
     parser.add_argument('--nativedir', type=str, required=True)
     parser.add_argument('--field', type=str, default='score', required=False)
+    parser.add_argument('--full', type=int, default=1, required=False)
 
     args = parser.parse_args()
 
@@ -57,9 +58,11 @@ if __name__ == '__main__':
         folddir = f"{args.folddir}/fold{fold}"
         lines = open(folddir + '/targets.list').readlines()
         targets_test_in_fold = lines[2].split()
-        print(f"Fold {fold}:")
-        print(f"Test targets:")
-        print(targets_test_in_fold)
+
+        if args.full > 1:
+            print(f"Fold {fold}:")
+            print(f"Test targets:")
+            print(targets_test_in_fold)
 
         corrs = []
         spear_corrs = []
@@ -157,15 +160,18 @@ if __name__ == '__main__':
             max_tmscores += [best_top1_tmscore]
             MSEs += [mse]
 
-        for i in range(len(targets_test_in_fold)):
-            contents = []
-            contents += [str(corrs[i])]
-            contents += [str(spear_corrs[i])]
-            contents += [str(losses[i])]
-            contents += [str(MSEs[i])]   
-            print(' '.join(contents))
-        print("Correlation\tSpear Correlation\tRanking loss\tMSE")
-        print(f"Average: {np.mean(corrs)}\t{np.mean(spear_corrs)}\t{np.mean(losses)}\t{np.mean(MSEs)}")
+        if args.full > 1:
+            for i in range(len(targets_test_in_fold)):
+                contents = []
+                contents += [str(corrs[i])]
+                contents += [str(spear_corrs[i])]
+                contents += [str(losses[i])]
+                contents += [str(MSEs[i])]   
+                print(' '.join(contents))
+            print("Correlation\tSpear Correlation\tRanking loss\tMSE")
+            print(f"Average: {np.mean(corrs)}\t{np.mean(spear_corrs)}\t{np.mean(losses)}\t{np.mean(MSEs)}")
+        else:
+            print(f"{np.mean(corrs)}\t{np.mean(spear_corrs)}\t{np.mean(losses)}\t{np.mean(MSEs)}")
 
 
 

@@ -7,27 +7,27 @@ import pandas as pd
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--workdirs', type=str, required=True)
-    parser.add_argument('--fields', type=str, required=True)
+    parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
 
     args = parser.parse_args()
 
-    workdirs = args.workdirs.split(',')
-    fields = args.fields.split(',')
-
-    ensemble_predictions = sorted([infile for workdir in args.workdirs.split(',') for infile in os.listdir(workdir)])
-    ensemble_predictions = set(ensemble_predictions)
+    # workdirs = args.workdirs.split(',')
+    #ensemble_predictions = sorted([infile for workdir in args.workdirs.split(',') for infile in os.listdir(workdir)])
+    #ensemble_predictions = set(ensemble_predictions)
+    #print(ensemble_predictions)
+    workdirs = os.listdir(args.indir)
+    ensemble_predictions = sorted([infile for workdir in workdirs for infile in os.listdir(args.indir + '/' + workdir) if infile != "DONE"])
     print(ensemble_predictions)
 
     for ensemble_prediction in ensemble_predictions:
         prev_df = None
         for i, workdir in enumerate(workdirs):
             
-            if not os.path.exists(workdir + '/' + ensemble_prediction):
-                raise Exception(f"Cannot find {workdir}/{ensemble_prediction}")
+            if not os.path.exists(args.indir + '/' + workdir + '/' + ensemble_prediction):
+                raise Exception(f"Cannot find {args.indir}/{workdir}/{ensemble_prediction}")
             
-            curr_df = pd.read_csv(workdir + '/' + ensemble_prediction)
+            curr_df = pd.read_csv(args.indir + '/' + workdir + '/' + ensemble_prediction)
             curr_df = curr_df.add_suffix(f"{i + 1}")
             curr_df['model'] = curr_df[f'model{i + 1}']
             curr_df = curr_df.drop([f'model{i + 1}'], axis=1)
@@ -42,9 +42,7 @@ if __name__ == '__main__':
         for i in range(len(prev_df)):
             sum_score = 0
             for j in range(len(workdirs)):
-                # sum_score += prev_df.loc[i, f'score{j+1}']
-                sum_score += prev_df.loc[i, f"{fields[j]}{j+1}"]
-
+                sum_score += prev_df.loc[i, f'score{j+1}']
             avg_scores += [sum_score/len(workdirs)]
         
         models = prev_df['model']

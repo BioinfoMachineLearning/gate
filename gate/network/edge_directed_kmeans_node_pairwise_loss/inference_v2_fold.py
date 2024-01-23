@@ -104,11 +104,13 @@ def cli_main():
         else:
             ensemble_dict[foldname] = 'median'
 
-    savedir = args.outdir + '/predictions/' + args.prefix
-    os.makedirs(savedir, exist_ok=True)
+    save_rootdir = args.outdir + '/predictions/' + args.prefix
+    os.makedirs(save_rootdir, exist_ok=True)
 
-    #for fold in range(10):
-    for fold in [2]:    
+    for fold in range(10):
+    #for fold in [5]:    
+        savedir = os.path.join(save_rootdir, f"fold{fold}")
+        os.makedirs(savedir, exist_ok=True)
         dgldir = f"{args.outdir}/processed_data/dgl"
         labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
