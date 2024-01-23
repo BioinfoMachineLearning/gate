@@ -7,7 +7,7 @@
 #SBATCH --account=chengji-lab
 #SBATCH --ntasks-per-node=4  # cores per task
 #SBATCH --mem=60G  # memory per core (default is 1GB/core)
-#SBATCH --time 0-08:10     # days-hours:minutes time
+#SBATCH --time 3-00:00     # days-hours:minutes time
 #SBATCH --gres gpu:A100
 #SBATCH --job-name=directed_kmeans_af_v8_t3000_sim0.5_fold7
 #SBATCH --output=directed_kmeans_af_v8_t3000_sim0.5_fold7-%j.out  # %j is the unique jobID

@@ -6,7 +6,7 @@
 #SBATCH --partition gpu
 #SBATCH --ntasks-per-node=4  # cores per task
 #SBATCH --mem=70G  # memory per core (default is 1GB/core)
-#SBATCH --time 0-08:10     # days-hours:minutes time 
+#SBATCH --time 2-00:00     # days-hours:minutes time 
 #SBATCH --gres gpu:A100
 #SBATCH --job-name=directed_kmeans_af_v8_t3000_sim0.5_fold8
 #SBATCH --output=directed_kmeans_af_v8_t3000_sim0.5_fold8-%j.out  # %j is the unique jobID
