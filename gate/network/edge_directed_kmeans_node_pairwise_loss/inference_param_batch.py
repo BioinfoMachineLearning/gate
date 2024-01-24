@@ -82,16 +82,17 @@ def cli_main():
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--ckptdir', type=str, required=True)
     parser.add_argument('--ckptfiledir', type=str, required=True)
+    parser.add_argument('--suffix', type=str, required=True)
 
     args = parser.parse_args()
 
     device = torch.device('cuda')  # set cuda device
 
-    savedir = args.outdir + '/predictions/'
+    savedir = f"{args.outdir}/predictions_{args.suffix}"
     os.makedirs(savedir, exist_ok=True)
 
     for fold in range(10):
-    #for fold in [5]:    
+    #for fold in [2]:    
         msefile = f"{args.ckptfiledir}/fold{fold}/mse.csv"
         df = pd.read_csv(msefile)
         ckptnames = list(df['ckptdir'])
@@ -115,20 +116,23 @@ def cli_main():
         ensemble_dict = {}
         for i in range(len(df)):
             ckptname = df.loc[i, 'ckptdir']
-            valid_target_mean_ranking_loss = df.loc[i, 'val_target_mean_ranking_loss']
-            valid_target_median_ranking_loss = df.loc[i, 'val_target_median_ranking_loss']
-            valid_target_mean_mse = df.loc[i, 'val_target_mean_mse']
-            valid_target_median_mse = df.loc[i, 'val_target_median_mse']
+            if args.suffix == "mean":
+                ensemble_dict[ckptname] = 'mean'
+            else:
+                valid_target_mean_ranking_loss = df.loc[i, 'val_target_mean_ranking_loss']
+                valid_target_median_ranking_loss = df.loc[i, 'val_target_median_ranking_loss']
+                valid_target_mean_mse = df.loc[i, 'val_target_mean_mse']
+                valid_target_median_mse = df.loc[i, 'val_target_median_mse']
 
-            if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
-                if valid_target_mean_mse < valid_target_median_mse:
+                if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
+                    if valid_target_mean_mse < valid_target_median_mse:
+                        ensemble_dict[ckptname] = 'mean'
+                    else:
+                        ensemble_dict[ckptname] = 'median'
+                elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
                     ensemble_dict[ckptname] = 'mean'
                 else:
                     ensemble_dict[ckptname] = 'median'
-            elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
-                ensemble_dict[ckptname] = 'mean'
-            else:
-                ensemble_dict[ckptname] = 'median'
 
         for ckptname in ckptnames:
 
@@ -257,7 +261,7 @@ def cli_main():
                     mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
                     # ensemble_scores += [mean_score]
                     median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
-                    #ensemble_scores += [mean_score]
+                    # ensemble_scores += [mean_score]
                     if ensemble_dict[ckptname] == "mean":
                         ensemble_scores += [mean_score]
                     else:

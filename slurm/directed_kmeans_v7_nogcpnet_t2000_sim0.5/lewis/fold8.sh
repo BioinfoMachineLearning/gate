@@ -9,8 +9,8 @@
 #SBATCH --time 2-00:00     # days-hours:minutes time 
 #SBATCH --account=engineering-gpu  # investors in gpu4 will replace this (e.g. engineering-gpu)
 #SBATCH --gres gpu:1
-#SBATCH --job-name=JOBNAME
-#SBATCH --output=JOBNAME-%j.out  # %j is the unique jobID
+#SBATCH --job-name=directed_kmeans_v7_nogcpnet_t2000_sim0.5_fold8
+#SBATCH --output=directed_kmeans_v7_nogcpnet_t2000_sim0.5_fold8-%j.out  # %j is the unique jobID
 #SBATCH --mail-type=all
 #SBATCH --mail-user=jl4mc@umsystem.edu
 
@@ -23,3 +23,4 @@ export PYTHONPATH=/home/jl4mc/data/gate
 
 cd /home/jl4mc/data/gate
 
+python gate/network/edge_directed_kmeans_node_pairwise_loss/train_single_fold_seed_v3_nogcpnet_mango.py --datadir dataset/CASP15_scores/sample/kmeans_v6/kmeans_sil_t2000/ --scoredir dataset/CASP15_scores/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v6_nogcpnet/0.5/kmeans_sil_t2000/ --project directed_kmeans_v7_nogcpnet_t2000_sim0.5 --dbdir experiments/ --labeldir dataset/CASP15_scores/label/ --log_val_mse true --fold 8
