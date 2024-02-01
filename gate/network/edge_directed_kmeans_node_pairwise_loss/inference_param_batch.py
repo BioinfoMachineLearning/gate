@@ -91,8 +91,8 @@ def cli_main():
     savedir = f"{args.outdir}/predictions_{args.suffix}"
     os.makedirs(savedir, exist_ok=True)
 
-    for fold in range(10):
-    #for fold in [2]:    
+    #for fold in range(10):
+    for fold in range(5, 10):    
         msefile = f"{args.ckptfiledir}/fold{fold}/mse.csv"
         df = pd.read_csv(msefile)
         ckptnames = list(df['ckptdir'])

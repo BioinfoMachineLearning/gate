@@ -156,12 +156,17 @@ def main():
                 jsonfile = f"{args.outdir}/{target}/{pdb1}_{pdb2}.json"
                 if not os.path.exists(jsonfile):
                     raise Exception(f"cannot find {jsonfile}")
-                
+                print(jsonfile) 
                 with open(jsonfile) as f:
                     data = json.load(f)
-                    scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"] = data["dockq_wave_full"]
-                    scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"] = data["dockq_ave_full"]
-                    scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
+                    if "dockq_wave_full" not in data:
+                        scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"] = 0.0
+                        scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"] = 0.0
+                        scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = 0.0
+                    else:
+                        scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"] = data["dockq_wave_full"]
+                        scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"] = data["dockq_ave_full"]
+                        scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
 
 
         print("222222222222222222222222")

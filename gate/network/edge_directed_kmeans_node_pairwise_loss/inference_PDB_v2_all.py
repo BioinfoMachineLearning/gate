@@ -92,18 +92,12 @@ def cli_main():
     ensemble_dict = {}
     for line in open(args.ckptfile):
         line = line.rstrip('\n')
-        foldname, runname, ckptname, valid_loss, valid_node_loss, valid_pairwise_loss, valid_ranking_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
-        ckpts_dict[foldname] = ckptname
-        ensemble_dict[foldname] = 'mean'
-        # if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
-        #     if valid_target_mean_mse < valid_target_median_mse:
-        #         ensemble_dict[foldname] = 'mean'
-        #     else:
-        #         ensemble_dict[foldname] = 'median'
-        # elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
-        #     ensemble_dict[foldname] = 'mean'
-        # else:
-        #     ensemble_dict[foldname] = 'median'
+        if len(line) > 0:
+            contents = line.split()
+            if len(contents) == 2:
+                foldname, ckptname = contents[0], contents[1]
+                ckpts_dict[foldname] = ckptname
+                ensemble_dict[foldname] = 'mean'
 
     savedir = args.outdir + '/predictions/' + args.prefix
     os.makedirs(savedir, exist_ok=True)
@@ -121,7 +115,9 @@ def cli_main():
     test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets)
 
     for fold in range(10):
-        
+        if "fold" + str(fold) not in ckpts_dict:
+            continue
+
         folddir = f"{args.outdir}/fold{fold}"
         ckpt_dir = f"{args.ckptdir}/fold{fold}/ckpt/" + ckpts_dict["fold" + str(fold)] 
         if len(os.listdir(ckpt_dir)) == 0:

@@ -47,7 +47,7 @@ class DGLData(Dataset):
             target_dgl_folder = self.dgl_folder + '/' + target
             target_label_folder = self.label_folder + '/' + target
 
-            for dgl_file in os.listdir(target_dgl_folder):
+            for dgl_file in os.listdir(target_dgl_folder)[:2000]:
                 g, tmp = dgl.data.utils.load_graphs(target_dgl_folder + '/' + dgl_file)
                 self.data.append(g[0])
                 self.node_label.append(np.load(target_label_folder + '/' + dgl_file.replace('.dgl', '_node.npy')))
@@ -92,36 +92,22 @@ def cli_main():
     ensemble_dict = {}
     for line in open(args.ckptfile):
         line = line.rstrip('\n')
-        foldname, runname, ckptname, valid_loss, valid_node_loss, valid_pairwise_loss, valid_ranking_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
-        ckpts_dict[foldname] = ckptname
-        ensemble_dict[foldname] = 'mean'
-        # if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
-        #     if valid_target_mean_mse < valid_target_median_mse:
-        #         ensemble_dict[foldname] = 'mean'
-        #     else:
-        #         ensemble_dict[foldname] = 'median'
-        # elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
-        #     ensemble_dict[foldname] = 'mean'
-        # else:
-        #     ensemble_dict[foldname] = 'median'
+        if len(line) > 0:
+            contents = line.split()
+            if len(contents) == 2:
+                foldname, ckptname = contents[0], contents[1]
+                ckpts_dict[foldname] = ckptname
+                ensemble_dict[foldname] = 'mean'
 
     savedir = args.outdir + '/predictions/' + args.prefix
     os.makedirs(savedir, exist_ok=True)
 
-    lines = open(f"{args.outdir}/fold0/targets.list").readlines()
-    targets_train_in_fold = lines[0].split()
-    targets_val_in_fold = lines[1].split()
-    targets_test_in_fold = lines[2].split()
-    targets = sorted(targets_train_in_fold + targets_val_in_fold + targets_test_in_fold)
-    print(f"Test targets:")
-    print(targets)
+    for fold in range(10):  
+        if "fold" + str(fold) not in ckpts_dict:
+            continue
 
-    dgldir = f"{args.outdir}/processed_data/dgl"
-    labeldir = f"{args.outdir}/processed_data/label"
-    test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets)
-
-    for fold in range(10):
-        
+        dgldir = f"{args.outdir}/processed_data/dgl"
+        labeldir = f"{args.outdir}/processed_data/label"
         folddir = f"{args.outdir}/fold{fold}"
         ckpt_dir = f"{args.ckptdir}/fold{fold}/ckpt/" + ckpts_dict["fold" + str(fold)] 
         if len(os.listdir(ckpt_dir)) == 0:
@@ -137,10 +123,18 @@ def cli_main():
             break
 
         print(ckptfile)
+        
+        lines = open(folddir + '/targets.list').readlines()
+
+        targets_test_in_fold = lines[2].split()
 
         print(f"Fold {fold}:")
+
+        print(f"Test targets:")
+        print(targets_test_in_fold)
         
         config_file = ckpt_dir + '/config.json'
+
         if os.path.exists(config_file):
             with open(config_file) as f:
                 config_list = json.load(f)
@@ -165,6 +159,7 @@ def cli_main():
         else:
             raise Exception(f"Cannot find the config file: {config_file}")
 
+        test_data = DGLData(dgl_folder=dgldir, label_folder=labeldir, targets=targets_test_in_fold)
         test_loader = DataLoader(test_data,
                                 batch_size=batch_size,
                                 num_workers=32,
@@ -200,9 +195,6 @@ def cli_main():
 
         model.eval()
 
-        save_fold_dir = savedir + '/fold' + str(fold)
-        os.makedirs(save_fold_dir, exist_ok=True)
-
         target_pred_subgraph_scores = {}
         for idx, (batch_graphs, labels, data_paths) in enumerate(test_loader):
             #print(data_paths)
@@ -232,7 +224,7 @@ def cli_main():
                 start_idx += len(subgraph_df.columns)
 
         foldname = f"fold{fold}"
-        for target in targets:
+        for target in targets_test_in_fold:
             ensemble_scores, ensemble_count, std, normalized_std = [], [], [], []
             for modelname in target_pred_subgraph_scores[target]:
                 target_pred_outdir = folddir + '/' + target
@@ -240,9 +232,11 @@ def cli_main():
                 # with open(target_pred_outdir + '/' + modelname, 'w') as fw:
                 #     for pred_score in target_pred_subgraph_scores[target][modelname]:
                 #         fw.write(str(pred_score) + '\n')
-                mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname])) 
+                mean_score = np.mean(np.array(target_pred_subgraph_scores[target][modelname]))
+                # ensemble_scores += [mean_score]
                 median_score = np.median(np.array(target_pred_subgraph_scores[target][modelname]))
-                if ensemble_dict[foldname] == "mean":
+                #ensemble_scores += [mean_score]
+                if ensemble_dict[f"fold{fold}"] == "mean":
                     ensemble_scores += [mean_score]
                 else:
                     ensemble_scores += [median_score]
@@ -251,9 +245,9 @@ def cli_main():
                 std += [np.std(np.array(target_pred_subgraph_scores[target][modelname]))]
                 normalized_std += [np.std(np.array(target_pred_subgraph_scores[target][modelname])) / mean_score]
             pd.DataFrame({'model': list(target_pred_subgraph_scores[target].keys()), 'score': ensemble_scores, 
-                          'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(save_fold_dir + '/' + target + '.csv')
+                          'sample_count': ensemble_count, 'std': std, "std_norm": normalized_std}).to_csv(savedir + '/' + target + '.csv')
 
-        os.system(f"touch {save_fold_dir}/DONE")
+    
 
 if __name__ == '__main__':
     cli_main()

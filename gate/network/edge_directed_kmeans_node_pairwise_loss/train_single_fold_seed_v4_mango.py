@@ -157,8 +157,8 @@ def objective_graph_transformer(hyper_par):
     pairwise_loss_fun = hyper_par['pairwise_loss_fun']
     pairwise_loss_weight = hyper_par['pairwise_loss_weight']
 
-    node_input_dim = 15 # 20 #18
-    edge_input_dim = 4 # 4 #3
+    node_input_dim = 21 # 20 #18
+    edge_input_dim = 7 # 4 #3
     residual = True
     batch_norm = not layer_norm
 

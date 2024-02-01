@@ -30,7 +30,8 @@ def generate_enqa_scores(indir: str,
                          outdir: str, 
                          fasta_path: str, 
                          targetname: str, 
-                         model_csv: str):
+                         model_csv: str,
+                         mode: str):
                          
     print(model_csv)
     if not os.path.exists(model_csv):
@@ -42,7 +43,11 @@ def generate_enqa_scores(indir: str,
         for pdb in sorted(os.listdir(indir)):
             resultfile = outdir + '/' + pdb + '.npy'
             if not os.path.exists(resultfile):
-                mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
+                if mode == "multimer":
+                    mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
+                else:
+                    os.system(f"cp {indir}/{pdb} {modeldir}/{pdb}.pdb")
+
                 cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}/{pdb}"
                 try:
                     print(cmd)
@@ -107,6 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--interface_dir', type=str, required=True)
     parser.add_argument('--fastadir', type=str, required=True)
+    parser.add_argument('--mode', type=str, default="multimer", required=False)
 
     args = parser.parse_args()
 
@@ -121,7 +127,8 @@ if __name__ == '__main__':
                              fasta_path=args.fastadir + '/' + target + '.fasta',  
                              outdir=outdir, 
                              targetname=target, 
-                             model_csv=args.interface_dir + '/' + target + '.csv')
+                             model_csv=args.interface_dir + '/' + target + '.csv',
+                             mode=args.mode)
 
 
 

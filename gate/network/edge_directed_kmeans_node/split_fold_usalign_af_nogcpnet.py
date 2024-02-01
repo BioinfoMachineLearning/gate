@@ -11,12 +11,14 @@ from typing import List, Union
 from joblib import Parallel, delayed
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from graph_transformer_v3 import Gate
+from graph_transformer_v2 import Gate
 import lightning as L
 from torch.utils.data import Dataset
 from argparse import ArgumentParser
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader
+from lightning.pytorch.loggers.wandb import WandbLogger
+import wandb
 from scipy.stats.stats import pearsonr
 import scipy.sparse as sp
 import random
@@ -81,9 +83,6 @@ def build_model_graph(targetname: str,
     subgraph_usalign_df = pd.read_csv(subgraph_file, index_col=[0])
     subgraph_mmalign_df = pd.read_csv(subgraph_file.replace('usalign', 'mmalign'), index_col=[0])
     subgraph_qsscore_df = pd.read_csv(subgraph_file.replace('usalign', 'qsscore'), index_col=[0])
-    subgraph_dockq_wave_df = pd.read_csv(subgraph_file.replace('usalign', 'dockq_wave'), index_col=[0])
-    subgraph_dockq_ave_df = pd.read_csv(subgraph_file.replace('usalign', 'dockq_ave'), index_col=[0])
-    subgraph_cad_score_df = pd.read_csv(subgraph_file.replace('usalign', 'cad_score'), index_col=[0])
 
     nodes_num = len(subgraph_usalign_df)
 
@@ -99,23 +98,23 @@ def build_model_graph(targetname: str,
     alphafold_plddt_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_plddt_scores).reshape(-1, 1))).float()
     
     # b. alphafold confidence score, iptm score, mpDockQ score
-    # alphafold_scores_file = score_dir + '/af_features/' + targetname + '.csv' 
-    # alphafold_scores_df = pd.read_csv(alphafold_scores_file)
-    # alphafold_confidence_score_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['iptm_ptm']))}
-    # alphafold_confidence_scores = [alphafold_confidence_score_dict[model] for model in models]
-    # alphafold_confidence_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_confidence_scores).reshape(-1, 1))).float()
+    alphafold_scores_file = score_dir + '/af_features/' + targetname + '.csv' 
+    alphafold_scores_df = pd.read_csv(alphafold_scores_file)
+    alphafold_confidence_score_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['iptm_ptm']))}
+    alphafold_confidence_scores = [alphafold_confidence_score_dict[model] for model in models]
+    alphafold_confidence_score_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_confidence_scores).reshape(-1, 1))).float()
 
-    # alphafold_num_inter_pae_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['num_inter_pae']))}
-    # alphafold_num_inter_paes = [alphafold_num_inter_pae_dict[model] for model in models]
-    # alphafold_num_inter_pae_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_num_inter_paes).reshape(-1, 1))).float()
+    alphafold_num_inter_pae_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['num_inter_pae']))}
+    alphafold_num_inter_paes = [alphafold_num_inter_pae_dict[model] for model in models]
+    alphafold_num_inter_pae_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_num_inter_paes).reshape(-1, 1))).float()
 
-    # alphafold_iptm_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['iptm']))}
-    # alphafold_iptms = [alphafold_iptm_dict[model] for model in models]
-    # alphafold_iptm_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_iptms).reshape(-1, 1))).float()
+    alphafold_iptm_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['iptm']))}
+    alphafold_iptms = [alphafold_iptm_dict[model] for model in models]
+    alphafold_iptm_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_iptms).reshape(-1, 1))).float()
 
-    # alphafold_dockq_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['mpDockQ/pDockQ']))}
-    # alphafold_dockqs = [alphafold_dockq_dict[model] for model in models]
-    # alphafold_dockq_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_dockqs).reshape(-1, 1))).float()
+    alphafold_dockq_dict = {k: v for k, v in zip(list(alphafold_scores_df['jobs']), list(alphafold_scores_df['mpDockQ/pDockQ']))}
+    alphafold_dockqs = [alphafold_dockq_dict[model] for model in models]
+    alphafold_dockq_feature = torch.tensor(scaler.fit_transform(torch.tensor(alphafold_dockqs).reshape(-1, 1))).float()
 
     # usalign
     # b1. average pairwise similarity score in graph
@@ -138,6 +137,7 @@ def build_model_graph(targetname: str,
     average_sim_mmalign_scores_in_full_graph = [np.mean(np.array(full_mmalign_graph_df[model])) for model in models]
     average_sim_mmalign_score_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_mmalign_scores_in_full_graph).reshape(-1, 1))).float()
 
+
     # b3. average pairwise qsscore in graph
     # b4. average pairwise qsscore in graph
     average_sim_qsscores_in_subgraph = [np.mean(np.array(subgraph_qsscore_df[model])) for model in models]
@@ -147,36 +147,6 @@ def build_model_graph(targetname: str,
     full_qsscore_graph_df = pd.read_csv(fullgraph_qsscore_file, index_col=[0])
     average_sim_qsscores_in_full_graph = [np.mean(np.array(full_qsscore_graph_df[model])) for model in models]
     average_sim_qsscore_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_qsscores_in_full_graph).reshape(-1, 1))).float()
-
-    # b5. average pairwise qsscore in graph
-    # b6. average pairwise qsscore in graph
-    average_sim_dockq_waves_in_subgraph = [np.mean(np.array(subgraph_dockq_wave_df[model])) for model in models]
-    average_sim_dockq_wave_in_subgraph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_dockq_waves_in_subgraph).reshape(-1, 1))).float()
-
-    fullgraph_dockq_wave_file = score_dir + '/interface_pairwise/' + targetname + '_dockq_wave.csv'
-    full_dockq_wave_graph_df = pd.read_csv(fullgraph_dockq_wave_file, index_col=[0])
-    average_sim_dockq_waves_in_full_graph = [np.mean(np.array(full_dockq_wave_graph_df[model])) for model in models]
-    average_sim_dockq_wave_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_dockq_waves_in_full_graph).reshape(-1, 1))).float()
-
-    # b7. average pairwise qsscore in graph
-    # b8. average pairwise qsscore in graph
-    average_sim_dockq_aves_in_subgraph = [np.mean(np.array(subgraph_dockq_ave_df[model])) for model in models]
-    average_sim_dockq_ave_in_subgraph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_dockq_aves_in_subgraph).reshape(-1, 1))).float()
-
-    fullgraph_dockq_ave_file = score_dir + '/interface_pairwise/' + targetname + '_dockq_ave.csv'
-    full_dockq_ave_graph_df = pd.read_csv(fullgraph_dockq_ave_file, index_col=[0])
-    average_sim_dockq_aves_in_full_graph = [np.mean(np.array(full_dockq_ave_graph_df[model])) for model in models]
-    average_sim_dockq_ave_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_dockq_aves_in_full_graph).reshape(-1, 1))).float()
-
-    # b9. average pairwise qsscore in graph
-    # b10. average pairwise qsscore in graph
-    average_sim_cad_scores_in_subgraph = [np.mean(np.array(subgraph_cad_score_df[model])) for model in models]
-    average_sim_cad_score_in_subgraph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_cad_scores_in_subgraph).reshape(-1, 1))).float()
-
-    fullgraph_cad_score_file = score_dir + '/interface_pairwise/' + targetname + '_cad_score.csv'
-    full_cad_score_graph_df = pd.read_csv(fullgraph_cad_score_file, index_col=[0])
-    average_sim_cad_scores_in_full_graph = [np.mean(np.array(full_cad_score_graph_df[model])) for model in models]
-    average_sim_cad_score_in_full_graph_feature = torch.tensor(scaler.fit_transform(torch.tensor(average_sim_cad_scores_in_full_graph).reshape(-1, 1))).float()
 
     # c. voro scores: gnn, gnn_pcadscore, voromqa_dark
     voro_scores_file = score_dir + '/voro_scores/' + targetname + '.csv'
@@ -240,10 +210,6 @@ def build_model_graph(targetname: str,
     subgraph_usalign_array = np.array(subgraph_usalign_df)
     subgraph_mmalign_array = np.array(subgraph_mmalign_df)
     subgraph_qsscore_array = np.array(subgraph_qsscore_df)
-    subgraph_dockq_wave_array = np.array(subgraph_dockq_wave_df)
-    subgraph_dockq_ave_array = np.array(subgraph_dockq_ave_df)
-    subgraph_cad_score_array = np.array(subgraph_cad_score_df)
-
     common_interface_csv_file = score_dir + '/edge_features/' + targetname + '.csv'
     common_interface_array = np.array(pd.read_csv(common_interface_csv_file, index_col=[0]))
     
@@ -253,10 +219,9 @@ def build_model_graph(targetname: str,
         else:
             sim_threshold = np.mean(np.array(subgraph_usalign_df))
 
-    # print(sim_threshold)
+    print(sim_threshold)
     src_nodes, dst_nodes = [], []
     edge_sim, edge_mmalign_sim, edge_qsscore_sim, edge_common_interface = [], [], [], []
-    edge_dockq_wave_sim, edge_dockq_ave_sim, edge_cad_score_sim = [], [], []
     for src in range(nodes_num):
         for dst in range(nodes_num):
             if src == dst:
@@ -269,53 +234,37 @@ def build_model_graph(targetname: str,
                 edge_sim += [subgraph_usalign_array[src, dst]] # should be normalized by the source model? e.g., source model is larger
                 edge_mmalign_sim += [subgraph_mmalign_array[src, dst]]
                 edge_qsscore_sim += [subgraph_qsscore_array[src, dst]]
-                edge_dockq_wave_sim += [subgraph_dockq_wave_array[src, dst]]
-                edge_dockq_ave_sim += [subgraph_dockq_ave_array[src, dst]]
-                edge_cad_score_sim += [subgraph_cad_score_array[src, dst]]
                 edge_common_interface += [common_interface_array[src, dst]]
-
     if len(edge_sim) > 0:
         # 6. add feature to graph
         graph = dgl.graph((torch.tensor(src_nodes), torch.tensor(dst_nodes)), num_nodes=nodes_num)
         # lap_enc_feature = laplacian_positional_encoding(graph, pos_enc_dim=8)
-        update_node_feature(graph, [alphafold_plddt_score_feature, 
-                                    #alphafold_confidence_score_feature,
-                                    #alphafold_num_inter_pae_feature, alphafold_iptm_feature, alphafold_dockq_feature,
+        update_node_feature(graph, [alphafold_plddt_score_feature, alphafold_confidence_score_feature,
+                                    alphafold_num_inter_pae_feature, alphafold_iptm_feature, alphafold_dockq_feature,
                                     average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
                                     average_sim_mmalign_score_in_subgraph_feature, average_sim_mmalign_score_in_full_graph_feature,
                                     average_sim_qsscore_in_subgraph_feature, average_sim_qsscore_in_full_graph_feature,
-                                    average_sim_dockq_wave_in_subgraph_feature, average_sim_dockq_wave_in_full_graph_feature,
-                                    average_sim_dockq_ave_in_subgraph_feature, average_sim_dockq_ave_in_full_graph_feature,
-                                    average_sim_cad_score_in_subgraph_feature, average_sim_cad_score_in_full_graph_feature,
                                     voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
-                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature, gcpnet_score_feature])
+                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature])
 
         edge_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_sim).reshape(-1, 1))).float()
         edge_mmalign_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_mmalign_sim).reshape(-1, 1))).float()
         edge_qsscore_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_qsscore_sim).reshape(-1, 1))).float()
-        edge_dockq_wave_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_dockq_wave_sim).reshape(-1, 1))).float()
-        edge_dockq_ave_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_dockq_ave_sim).reshape(-1, 1))).float()
-        edge_cad_score_sim_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_cad_score_sim).reshape(-1, 1))).float()
         edge_common_interface_feature = torch.tensor(scaler.fit_transform(torch.tensor(edge_common_interface).reshape(-1, 1))).float()
 
         # edge_sin_pos = torch.sin((graph.edges()[0] - graph.edges()[1]).float()).reshape(-1, 1)
         update_edge_feature(graph, [edge_sim_feature, edge_mmalign_sim_feature,
-                                edge_qsscore_sim_feature, edge_dockq_wave_sim_feature,
-                                edge_dockq_ave_sim_feature, edge_cad_score_sim_feature, edge_common_interface_feature])
+                                edge_qsscore_sim_feature, edge_common_interface_feature])
     else:
         graph = dgl.DGLGraph()
         graph.add_nodes(nodes_num)
-        update_node_feature(graph, [alphafold_plddt_score_feature, 
-                                    #alphafold_confidence_score_feature,
-                                    #alphafold_num_inter_pae_feature, alphafold_iptm_feature, alphafold_dockq_feature,
+        update_node_feature(graph, [alphafold_plddt_score_feature, alphafold_confidence_score_feature,
+                                    alphafold_num_inter_pae_feature, alphafold_iptm_feature, alphafold_dockq_feature,
                                     average_sim_score_in_subgraph_feature, average_sim_score_in_full_graph_feature,
                                     average_sim_mmalign_score_in_subgraph_feature, average_sim_mmalign_score_in_full_graph_feature,
                                     average_sim_qsscore_in_subgraph_feature, average_sim_qsscore_in_full_graph_feature,
-                                    average_sim_dockq_wave_in_subgraph_feature, average_sim_dockq_wave_in_full_graph_feature,
-                                    average_sim_dockq_ave_in_subgraph_feature, average_sim_dockq_ave_in_full_graph_feature,
-                                    average_sim_cad_score_in_subgraph_feature, average_sim_cad_score_in_full_graph_feature,
                                     voro_gnn_score_feature, voro_gnn_pcadscore_feature, voro_dark_score_feature,
-                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature, gcpnet_score_feature])
+                                    dproqa_score_feature, icps_score_feature, recall_score_feature, enqa_score_feature])
 
     dgl.save_graphs(filename=os.path.join(out, f'{filename}.dgl'), g_list=graph)
     # print(f'{filename}\nSUCCESS')
@@ -401,7 +350,7 @@ def generate_dgl_and_labels(savedir, targets, datadir, scoredir, sim_threshold, 
                                                        filename=target + '_' + subgraph_file.replace('.csv', ''), 
                                                        score_dir=scoredir, 
                                                        label_folder=label_folder + '/' + target) 
-                                                       for subgraph_file in os.listdir(datadir + '/' + target) if subgraph_file.find('usalign') > 0)
+                                                       for subgraph_file in os.listdir(datadir + '/' + target))
         os.system(f"touch {savedir}/label.done")
 
     return dgl_folder, label_folder        
