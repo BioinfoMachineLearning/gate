@@ -83,6 +83,7 @@ def cli_main():
     parser.add_argument('--ckptdir', type=str, required=True)
     parser.add_argument('--ckptfile', type=str, required=True)
     parser.add_argument('--prefix', type=str, required=True)
+    parser.add_argument('--suffix', type=str, required=False, default='mean_median')
 
     args = parser.parse_args()
 
@@ -94,17 +95,20 @@ def cli_main():
         line = line.rstrip('\n')
         foldname, runname, ckptname, valid_loss, valid_node_loss, valid_pairwise_loss, valid_ranking_loss, valid_target_mean_ranking_loss, valid_target_median_ranking_loss, valid_target_mean_mse, valid_target_median_mse = line.split(',')
         ckpts_dict[foldname] = ckptname
-        if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
-            if valid_target_mean_mse < valid_target_median_mse:
+        if args.suffix == "mean":
+            ensemble_dict[foldname] = 'median'
+        else:
+            if valid_target_mean_ranking_loss == valid_target_median_ranking_loss:
+                if valid_target_mean_mse < valid_target_median_mse:
+                    ensemble_dict[foldname] = 'mean'
+                else:
+                    ensemble_dict[foldname] = 'median'
+            elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
                 ensemble_dict[foldname] = 'mean'
             else:
                 ensemble_dict[foldname] = 'median'
-        elif valid_target_mean_ranking_loss < valid_target_median_ranking_loss:
-            ensemble_dict[foldname] = 'mean'
-        else:
-            ensemble_dict[foldname] = 'median'
 
-    savedir = args.outdir + '/predictions/' + args.prefix
+    savedir = f"{args.outdir}/predictions_{args.suffix}/{args.prefix}"
     os.makedirs(savedir, exist_ok=True)
 
     for fold in range(10):

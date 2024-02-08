@@ -1,0 +1,7 @@
+#python gate/network/edge_directed_kmeans_node/inference_PDB_v2.py --datadir dataset/PDB_dataset/sample/kmeans_v6/kmeans_sil_t3000/ --outdir dataset/PDB_dataset/processed_dataset_directed_kmeans_af_v6/0.5/kmeans_sil_t3000/  --ckptdir experiments/directed_kmeans_af_v6_t3000_sim0.5/ --ckptfile utils/directed_kmeans_af_v6_t3000_sim0.5/best_valid_loss.csv --prefix best_valid_loss
+
+python gate/network/edge_directed_kmeans_node/inference_PDB_v2.py --datadir dataset/PDB_dataset/sample/kmeans_v6/kmeans_sil_t3000/ --outdir dataset/PDB_dataset/processed_dataset_directed_kmeans_af_v6/0.5/kmeans_sil_t3000/  --ckptdir experiments/directed_kmeans_af_v6_t3000_sim0.5/ --ckptfile utils/directed_kmeans_af_v6_t3000_sim0.5/best_valid_mean_ranking_loss.csv --prefix best_valid_mean_ranking_loss
+
+python gate/network/edge_directed_kmeans_node/inference_PDB_v2.py --datadir dataset/PDB_dataset/sample/kmeans_v6/kmeans_sil_t3000/ --outdir dataset/PDB_dataset/processed_dataset_directed_kmeans_af_v6/0.2/kmeans_sil_t3000/  --ckptdir experiments/directed_kmeans_af_v6_t3000_sim0.2/ --ckptfile utils/directed_kmeans_af_v6_t3000_sim0.2/best_valid_loss.csv --prefix best_valid_loss
+
+python gate/network/edge_directed_kmeans_node/inference_PDB_v2.py --datadir dataset/PDB_dataset/sample/kmeans_v6/kmeans_sil_t3000/ --outdir dataset/PDB_dataset/processed_dataset_directed_kmeans_af_v6/0/kmeans_sil_t3000/  --ckptdir experiments/directed_kmeans_af_v6_t3000_sim0/ --ckptfile utils/directed_kmeans_af_v6_t3000_sim0/best_valid_loss.csv --prefix best_valid_loss
