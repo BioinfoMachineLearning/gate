@@ -9,10 +9,14 @@ def generate_af_scores(indir: str,
                        targetname: str, 
                        model_csv: str):
 
-    model_info_df = pd.read_csv(model_csv)
-    model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
+    target_dict = {'model': [], 'plddt': [], 'percentile': []}
 
-    target_dict = {'model': [], 'plddt': [], 'percentile': [], 'plddt_norm': [], 'percentile_norm': []}
+    model_size_ratio = {}
+    if os.path.exists(model_csv):    
+        model_info_df = pd.read_csv(model_csv)
+        model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
+        target_dict['plddt_norm'] = []
+        target_dict['percentile_norm'] = []
 
     modeldir = outdir + '/models'
     makedir_if_not_exists(modeldir)
@@ -26,17 +30,20 @@ def generate_af_scores(indir: str,
         plddt = plddt.to_numpy().astype(np.float32) / 100
         target_dict['model'] += [pdb]
         target_dict['plddt'] += [np.mean(plddt)]
-        target_dict['plddt_norm'] += [np.mean(plddt) * float(model_size_ratio[pdb])]
+
+        if 'plddt_norm' in target_dict:
+            target_dict['plddt_norm'] += [np.mean(plddt) * float(model_size_ratio[pdb])]
     
     plddt_array = np.array(target_dict['plddt'])
     for plddt in target_dict['plddt']:
         percentile = (plddt_array < plddt).sum() / len(target_dict['model'])
         target_dict['percentile'] += [percentile]
 
-    plddt_norm_array = np.array(target_dict['plddt_norm'])
-    for plddt in target_dict['plddt_norm']:
-        percentile_norm = (plddt_norm_array < plddt).sum() / len(target_dict['model'])
-        target_dict['percentile_norm'] += [percentile_norm]
+    if 'plddt_norm' in target_dict: 
+        plddt_norm_array = np.array(target_dict['plddt_norm'])
+        for plddt in target_dict['plddt_norm']:
+            percentile_norm = (plddt_norm_array < plddt).sum() / len(target_dict['model'])
+            target_dict['percentile_norm'] += [percentile_norm]
 
     pd.DataFrame(target_dict).to_csv(outdir + '/' + targetname + '.csv')
 
@@ -46,7 +53,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--interface_dir', type=str, required=True)
+    parser.add_argument('--interface_dir', type=str, default="1111", required=False)
 
     args = parser.parse_args()
 

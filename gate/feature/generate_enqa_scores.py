@@ -32,9 +32,27 @@ def generate_enqa_scores(indir: str,
                          targetname: str, 
                          model_csv: str,
                          mode: str):
-                         
-    print(model_csv)
-    if not os.path.exists(model_csv):
+    
+    target_dict = {'model': [], 'score': []}
+
+    model_size_ratio = {}
+    if os.path.exists(model_csv):
+        model_info_df = pd.read_csv(model_csv)
+        model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
+        target_dict['score_norm'] = []
+
+    max_length_threshold = 2500
+    # read sequences from fasta file
+    sequences, descriptions = parse_fasta(open(fasta_path).read())
+    target_length = np.sum(np.array([len(sequence) for sequence in sequences]))
+    if target_length >= max_length_threshold:
+        for model in sorted(os.listdir(indir)):
+            target_dict['model'] += [model]
+            target_dict['score'] += [0.0]
+            if 'score_norm' in target_dict:
+                target_dict['score_norm'] += [0.0]
+
+    else:
         os.chdir(EnQA_dir)
         
         modeldir = outdir + '/models'
@@ -47,7 +65,7 @@ def generate_enqa_scores(indir: str,
                     mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
                 else:
                     os.system(f"cp {indir}/{pdb} {modeldir}/{pdb}.pdb")
-
+                    
                 cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}/{pdb}"
                 try:
                     print(cmd)
@@ -55,39 +73,7 @@ def generate_enqa_scores(indir: str,
                     os.system(f"cp {outdir}/{pdb}/{pdb}.npy {outdir}/{pdb}.npy")
                 except Exception as e:
                     print(e)
-        return
 
-    model_info_df = pd.read_csv(model_csv)
-    model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
-
-    max_length_threshold = 2500
-    # read sequences from fasta file
-    sequences, descriptions = parse_fasta(open(fasta_path).read())
-    target_length = np.sum(np.array([len(sequence) for sequence in sequences]))
-    target_dict = {'model': [], 'score': [], 'score_norm': []}
-    if target_length >= max_length_threshold:
-        for model in model_size_ratio:
-            target_dict['model'] += [model]
-            target_dict['score'] += [0.0]
-            target_dict['score_norm'] += [0.0]
-
-    else:
-        os.chdir(EnQA_dir)
-        
-        modeldir = outdir + '/models'
-        makedir_if_not_exists(modeldir)
-
-        for pdb in sorted(os.listdir(indir)):
-            resultfile = outdir + '/' + pdb + '.npy'
-            if not os.path.exists(resultfile):
-                mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
-                cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}/{pdb}"
-                try:
-                    print(cmd)
-                    os.system(cmd)
-                    os.system(f"cp {outdir}/{pdb}/{pdb}.npy {outdir}/{pdb}.npy")
-                except Exception as e:
-                    print(e)
             target_dict['model'] += [pdb]
             if os.path.exists(resultfile):
                 plddt_scores = np.load(resultfile)
@@ -98,10 +84,15 @@ def generate_enqa_scores(indir: str,
                     print(f"There are nan values in {resultfile}")
 
                 target_dict['score'] += [global_score]
-                target_dict['score_norm'] += [global_score * float(model_size_ratio[pdb])]
+
+                if 'score_norm' in target_dict:
+                    target_dict['score_norm'] += [global_score * float(model_size_ratio[pdb])]
             else:
                 target_dict['score'] += [0.0]
-                target_dict['score_norm'] += [0.0]
+
+                if 'score_norm' in target_dict:
+                    target_dict['score_norm'] += [0.0]
+
     pd.DataFrame(target_dict).to_csv(outdir + '/' + targetname + '.csv')
     
 
@@ -110,7 +101,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--interface_dir', type=str, required=True)
+    parser.add_argument('--interface_dir', type=str, default="1111", required=False)
     parser.add_argument('--fastadir', type=str, required=True)
     parser.add_argument('--mode', type=str, default="multimer", required=False)
 

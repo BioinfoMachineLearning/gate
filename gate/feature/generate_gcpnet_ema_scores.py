@@ -79,40 +79,37 @@ def generate_gcpnet_scores(indir: str,
 
             os.system(f"cp {config_out_dir}/result.csv {resultfile}")
 
-        if not os.path.exists(model_csv):
-            continue
-        
-        if os.path.exists(f"{outdir}/{targetname}_{config_name}.csv"):
-            continue
-            
-        model_info_df = pd.read_csv(model_csv)
-        model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
+        data_dict = {'model': [], 'score': []}
+        model_size_ratio = {}
+        if os.path.exists(model_csv):                
+            model_info_df = pd.read_csv(model_csv)
+            model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
+            data_dict['score_norm'] = []
 
         pred_model_out_dir = outdir + '/' + config_name + '_pred_pdbs'
         os.makedirs(pred_model_out_dir, exist_ok=True)
 
         df = pd.read_csv(resultfile)
-        models = [] # list(df['MODEL'])
-        scores = [] # list(df['PRED_DOCKQ'])
-        scores_norm = []
         for model, pred_model, global_score in zip(list(df['input_annotated_pdb_filepath']), list(df['predicted_annotated_pdb_filepath']), list(df['global_score'])):
             modelname = os.path.basename(model)
             modelname = modelname.replace('.pdb', '')
-            if modelname not in model_size_ratio:
-                continue
-            models += [modelname]
-            scores += [global_score / 100]
-            scores_norm += [global_score / 100 * float(model_size_ratio[modelname])]
+            data_dict['model'] += [modelname]
+            data_dict['score'] += [global_score / 100]
+            
+            if 'score_norm' in data_dict:
+                data_dict['score_norm'] += [global_score / 100 * float(model_size_ratio[modelname])]
+
             os.system(f"cp {pred_model} {pred_model_out_dir}/{modelname}")
 
         for pdb in sorted(os.listdir(indir)):
             pdbname = pdb.replace('.pdb', '')
-            if pdbname not in models:
-                models += [pdbname]
-                scores += [0.0]
-                scores_norm += [0.0]
+            if pdbname not in data_dict['model']:
+                data_dict['model'] += [pdbname]
+                data_dict['score'] += [0.0]
+                if 'score_norm' in data_dict:
+                    data_dict['score_norm'] += [0.0]
         
-        pd.DataFrame({'model': models, 'score': scores, 'score_norm': scores_norm}).to_csv(f"{outdir}/{targetname}_{config_name}.csv")
+        pd.DataFrame(data_dict).to_csv(f"{outdir}/{targetname}_{config_name}.csv")
 
         
 
@@ -121,7 +118,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--interface_dir', type=str, required=True)
+    parser.add_argument('--interface_dir', type=str, required=False, default="1111")
     parser.add_argument('--fastadir', type=str, required=True)
 
     args = parser.parse_args()
@@ -129,10 +126,6 @@ if __name__ == '__main__':
     for target in os.listdir(args.indir):
         outdir = args.outdir + '/' + target
         makedir_if_not_exists(outdir)
-
-        # if os.path.exists(outdir + '/' + target + '.csv'):
-        #     continue
-
         generate_gcpnet_scores(indir=args.indir + '/' + target,
                                 fasta_path=args.fastadir + '/' + target + '.fasta',  
                                 outdir=outdir, 
