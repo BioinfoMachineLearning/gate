@@ -1,7 +1,0 @@
-python gate/network/edge_directed_kmeans_node/inference_v2.py --datadir dataset/CASP15_scores/sample/kmeans_v6/kmeans_sil_t2000/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v6/0.5/kmeans_sil_t2000/  --ckptdir experiments/directed_kmeans_v6_t2000_sim0.5/ --ckptfile utils/directed_kmeans_v6_t2000_sim0.5/best_valid_mean_ranking_loss.csv --prefix best_valid_mean_ranking_loss_v6
-
-python gate/network/edge_directed_kmeans_node/inference_v2.py --datadir dataset/CASP15_scores/sample/kmeans_v6/kmeans_sil_t2000/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v6/0.5/kmeans_sil_t2000/  --ckptdir experiments/directed_kmeans_v6_t2000_sim0.5/ --ckptfile utils/directed_kmeans_v6_t2000_sim0.5/best_valid_stable_ranking_loss.csv --prefix best_valid_stable_ranking_loss_v6
-
-python gate/network/edge_directed_kmeans_node/inference_v2.py --datadir dataset/CASP15_scores/sample/kmeans_v6/kmeans_sil_t2000/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v6/0.5/kmeans_sil_t2000/  --ckptdir experiments/directed_kmeans_v6_t2000_sim0.5/ --ckptfile utils/directed_kmeans_v6_t2000_sim0.5/best_valid_ranking_loss.csv --prefix best_valid_ranking_loss_v6
-
-python gate/network/edge_directed_kmeans_node/inference_v2.py --datadir dataset/CASP15_scores/sample/kmeans_v6/kmeans_sil_t2000/ --outdir dataset/CASP15_scores/processed_dataset_directed_kmeans_v6/0.5/kmeans_sil_t2000/  --ckptdir experiments/directed_kmeans_v6_t2000_sim0.5/ --ckptfile utils/directed_kmeans_v6_t2000_sim0.5/best_valid_loss.csv --prefix best_valid_loss_v6
