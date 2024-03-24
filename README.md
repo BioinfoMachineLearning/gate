@@ -37,6 +37,8 @@ git clone https://github.com/BioinfoMachineLearning/CDPred
 
 # Install openstructure
 docker pull registry.scicore.unibas.ch/schwede/openstructure:latest
+# or
+singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:latest
 ```
 
 ## Install python environments ##
