@@ -18,10 +18,10 @@ def read_mmalign(infile):
 def run_command(inparams):
     mmalign_program, indir, pdb1, pdb2, outdir = inparams
     cmd = f"{mmalign_program} {indir}/{pdb1} {indir}/{pdb2} > {outdir}/{pdb1}_{pdb2}.mmalign"
-    print(cmd)
+    # print(cmd)
     os.system(cmd)
     
-def run_pairwise(mmalign_program, indir, scoredir, outfile):
+def run_pairwise(mmalign_program, indir, scoredir, outfile, process_num):
 
     pdbs = sorted(os.listdir(indir))
 
@@ -37,7 +37,7 @@ def run_pairwise(mmalign_program, indir, scoredir, outfile):
                 continue
             process_list.append([mmalign_program, indir, pdb1, pdb2, scoredir])
 
-    pool = Pool(processes=120)
+    pool = Pool(processes=process_num)
     results = pool.map(run_command, process_list)
     pool.close()
     pool.join()
@@ -75,16 +75,15 @@ if __name__ == '__main__':
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--mmalign_program', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
+    parser.add_argument('--process_num', type=int, default=40)
 
     args = parser.parse_args()
 
-    for target in os.listdir(args.indir):
-        #if os.path.exists(args.outdir + '/' + target + '.csv'):
-        #    continue
+    scoredir = os.path.join(args.outdir, 'scores')
+    os.makedirs(scoredir, exist_ok=True)
 
-        scoredir = args.outdir + '/' + target
-        makedir_if_not_exists(scoredir)
-
-        outfile = args.outdir + '/' + target + '.csv'
-
-        run_pairwise(args.mmalign_program, args.indir + '/' + target, scoredir, outfile)
+    run_pairwise(mmalign_program=args.mmalign_program, 
+                 indir=args.indir, 
+                 scoredir=scoredir, 
+                 outfile=os.path.join(args.outdir, 'pairwise_mmalign.csv'),
+                 process_num=args.process_num)

@@ -6,17 +6,17 @@ import pandas as pd
 from gate.tool.utils import *
 import re, subprocess
 
-voro_dir = '/home/bml_casp15/tools/ftdmp/'
 voroqa_program = 'ftdmp-qa-all'
 
-def generate_voro_scores(indir: str, 
-                         outdir: str, 
-                         targetname: str, 
+def generate_voro_scores(voro_env_path: str,
+                         voro_program_path:str,
+                         indir: str, 
+                         outdir: str,
                          model_csv: str):
 
-    os.chdir(voro_dir)
+    os.chdir(voro_program_path)
     
-    modeldir = outdir + '/models'
+    modeldir = os.path.join(outdir, 'models')
     makedir_if_not_exists(modeldir)
 
     for pdb in sorted(os.listdir(indir)):
@@ -24,7 +24,13 @@ def generate_voro_scores(indir: str,
 
     resultfile = outdir + '/result.csv'
     if not os.path.exists(resultfile):
-        cmd = f"ls {modeldir}/*.pdb | ./{voroqa_program} --conda-path {voro_dir}/miniconda3/ " \
+
+        current_path = os.environ.get('PATH', '')
+        new_path = os.pathsep.join([os.path.join(voro_env_path, 'bin'), current_path])
+        # Set the updated PATH variable
+        os.environ['PATH'] = new_path
+
+        cmd = f"ls {modeldir}/*.pdb | ./{voroqa_program} --conda-path {voro_env_path} " \
             f"--workdir '{outdir}/tmp' --rank-names protein_protein_voromqa_and_global_and_gnn_no_sr > {resultfile}"
         try:
             print(cmd)
@@ -78,7 +84,7 @@ def generate_voro_scores(indir: str,
     
     pd.DataFrame({'model': models, 'GNN_sum_score': gnn_scores,  'GNN_sum_score_norm': gnn_scores_norm,
                   'GNN_pcadscore': gnn_pcad_scores, 'GNN_pcadscore_norm': gnn_pcad_scores_norm,
-                  'voromqa_dark': dark_scores, 'voromqa_dark_norm': dark_scores_norm}).to_csv(outdir + '/' + targetname + '.csv')
+                  'voromqa_dark': dark_scores, 'voromqa_dark_norm': dark_scores_norm}).to_csv(os.path.join(outdir, 'voro.csv'))
 
 
 if __name__ == '__main__':
@@ -86,16 +92,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--interface_dir', type=str, required=True)
+    parser.add_argument('--model_size_csv', type=str, required=True)
+    parser.add_argument('--voro_program_path', type=str, required=True) 
+    parser.add_argument('--voro_env_path', type=str, required=True) 
 
     args = parser.parse_args()
 
-    for target in os.listdir(args.indir):
-        outdir = args.outdir + '/' + target
-        makedir_if_not_exists(outdir)
-
-        generate_voro_scores(indir=args.indir + '/' + target, 
-                             outdir=outdir, 
-                             targetname=target, 
-                             model_csv=args.interface_dir + '/' + target + '.csv')
+    generate_voro_scores(voro_env_path=args.voro_env_path,
+                         voro_program_path=args.voro_program_path,
+                         indir=args.indir, 
+                         outdir=args.outdir,
+                         model_csv=args.model_size_csv)
 

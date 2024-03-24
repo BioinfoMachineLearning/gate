@@ -24,9 +24,9 @@ def _parse_args():
             "with non-equal sequences. 3 is what happens most often.") 
     parser = argparse.ArgumentParser(description = desc)
     parser.add_argument("--indir")
-    parser.add_argument("--mmalign_dir")
+    parser.add_argument("--mmalign_score_dir")
     parser.add_argument("--outdir")
-    parser.add_argument("--procnum")
+    parser.add_argument("--procnum", default=80)
     return parser.parse_args() 
 
 def read_qsscore(infile):
@@ -65,7 +65,7 @@ class MMalignResult:
         :param line: Single line of MMalign SUMMARY file
         :type line: :class:`str`
         """
-        print(infile)
+        # print(infile)
         
         trg_filename, mdl_filename, trg_mapping_str, mdl_mapping_str = "", "", "" , ""
         tmscore = 0
@@ -154,7 +154,7 @@ def _process_model(trg, mdl, mmalign_result):
         for cname in mdl_chem_group:
             mdl_chem_group_mapper[cname] = chem_group_idx
 
-    print(mmalign_result.flat_mapping)
+    # print(mmalign_result.flat_mapping)
     mismatches = list()
     for k,v in mmalign_result.flat_mapping.items():
         if k not in trg_chem_group_mapper or v not in mdl_chem_group_mapper:
@@ -213,9 +213,9 @@ def _cal_qsscore(inparams):
 
     modeldir, pdb1, pdb2, mmalign_out_dir, outdir = inparams
     
-    mmalign_data = MMalignResult.FromFile(f"{mmalign_out_dir}/{pdb1}_{pdb2}.mmalign")
+    mmalign_data = MMalignResult.FromFile(os.path.join(mmalign_out_dir, f"{pdb1}_{pdb2}.mmalign"))
 
-    pdb1_ent = io.LoadPDB(modeldir + '/' + pdb1)
+    pdb1_ent = io.LoadPDB(os.path.join(modeldir, pdb1))
     # do cleaning and stereochemistry checks on target
     ms1 = MolckSettings(rm_unk_atoms=True,
                        rm_non_std=True,
@@ -229,7 +229,7 @@ def _cal_qsscore(inparams):
     stereo_param = ReadStereoChemicalPropsFile()
     pdb1_ent = pdb1_ent.CreateFullView()
     
-    pdb2_ent = io.LoadPDB(modeldir + '/' + pdb2)
+    pdb2_ent = io.LoadPDB(os.path.join(modeldir, pdb2))
     ms2 = MolckSettings(rm_unk_atoms=True,
                        rm_non_std=True,
                        rm_hyd_atoms=True,
@@ -244,72 +244,68 @@ def _cal_qsscore(inparams):
 
     results = _process_model(pdb1_ent, pdb2_ent, mmalign_data)
     
-    with open(f"{outdir}/{pdb1}_{pdb2}.qsscore", 'w') as fh:
+    with open(os.path.join(outdir, f"{pdb1}_{pdb2}.qsscore"), 'w') as fh:
         json.dump(results, fh)
 
-    print(results)
+    # print(results)
 
     return results
 
 def main():
+
     args = _parse_args()
-    results = {}
-    for target in os.listdir(args.indir):
-        if target.find('.csv') > 0:
-            continue
-        print(f"Processing {target}")
-        pdbs = sorted(os.listdir(args.indir + '/' + target))
-        process_list = []
-        for i in range(len(pdbs)):
-            for j in range(len(pdbs)):
-                pdb1 = pdbs[i]
-                pdb2 = pdbs[j]
-                if pdb1 == pdb2:
-                    continue
-                outfile = f"{args.outdir}/{target}/{pdb1}_{pdb2}.qsscore"
-                if os.path.exists(outfile) and len(open(outfile).readlines()) > 0:
-                    continue
-                process_list.append([args.indir + '/' + target, pdb1, pdb2, args.mmalign_dir + '/' + target, args.outdir + '/' + target])
 
-        if not os.path.exists(args.outdir + '/' + target):
-            os.makedirs(args.outdir + '/' + target)
+    os.makedirs(args.outdir, exist_ok=True)
 
-        pool = Pool(processes=int(args.procnum))
-        results = pool.map(_cal_qsscore, process_list)
-        pool.close()
-        pool.join()
+    scoredir = os.path.join(args.outdir, 'scores')
+    os.makedirs(scoredir, exist_ok=True)
 
-        print("111111111111111111111111")
-        scores_dict = {}
-        for i in range(len(pdbs)):
-            for j in range(len(pdbs)):
-                pdb1 = pdbs[i]
-                pdb2 = pdbs[j]
-                if pdb1 == pdb2:
-                    continue
-                qsscore_file = f"{args.outdir}/{target}/{pdb1}_{pdb2}.qsscore"
-                if not os.path.exists(qsscore_file):
-                    raise Exception(f"cannot find {qsscore_file}")
-                scores_dict[f"{pdb1}_{pdb2}"] = read_qsscore(qsscore_file)
-
-        print("222222222222222222222222")
-        data_dict = {}
-        for i in range(len(pdbs)):
+    pdbs = sorted(os.listdir(args.indir))
+    process_list = []
+    for i in range(len(pdbs)):
+        for j in range(len(pdbs)):
             pdb1 = pdbs[i]
-            tmscores = []
-            for j in range(len(pdbs)):
-                pdb2 = pdbs[j]
-                tmscore = 1
-                if pdb1 != pdb2:
-                    if f"{pdb1}_{pdb2}" not in scores_dict:
-                        print(f"Cannot find {pdb1}_{pdb2}!")
+            pdb2 = pdbs[j]
+            if pdb1 == pdb2:
+                continue
+            outfile = os.path.join(scoredir, f"{pdb1}_{pdb2}.qsscore")
+            if os.path.exists(outfile) and len(open(outfile).readlines()) > 0:
+                continue
+            process_list.append([args.indir, pdb1, pdb2, args.mmalign_score_dir, scoredir])
 
-                    tmscore = scores_dict[f"{pdb1}_{pdb2}"]
-                tmscores += [tmscore]
-            data_dict[pdb1] = tmscores
+    pool = Pool(processes=int(args.procnum))
+    results = pool.map(_cal_qsscore, process_list)
+    pool.close()
+    pool.join()
 
-        print("3333333333333333333333333")
-        pd.DataFrame(data_dict).to_csv(args.outdir + '/' + target + '.csv')
+    scores_dict = {}
+    for i in range(len(pdbs)):
+        for j in range(len(pdbs)):
+            pdb1 = pdbs[i]
+            pdb2 = pdbs[j]
+            if pdb1 == pdb2:
+                continue
+            qsscore_file = os.path.join(scoredir, f"{pdb1}_{pdb2}.qsscore")
+            if not os.path.exists(qsscore_file):
+                raise Exception(f"cannot find {qsscore_file}")
+            scores_dict[f"{pdb1}_{pdb2}"] = read_qsscore(qsscore_file)
+
+    data_dict = {}
+    for i in range(len(pdbs)):
+        pdb1 = pdbs[i]
+        tmscores = []
+        for j in range(len(pdbs)):
+            pdb2 = pdbs[j]
+            tmscore = 1
+            if pdb1 != pdb2:
+                if f"{pdb1}_{pdb2}" not in scores_dict:
+                    print(f"Cannot find {pdb1}_{pdb2}!")
+
+                tmscore = scores_dict[f"{pdb1}_{pdb2}"]
+            tmscores += [tmscore]
+        data_dict[pdb1] = tmscores
+
+    pd.DataFrame(data_dict).to_csv(os.path.join(args.outdir, 'qsscore.csv'))
 
 if __name__ == '__main__':
     main()

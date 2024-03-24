@@ -7,10 +7,9 @@ from gate.tool.utils import *
 import re, subprocess
 from gate.tool.alignment import parse_fasta
 
-EnQA_dir = '/bmlfast/jl4mc/tools/EnQA/'
 EnQA_program = 'EnQA-MSA.py'
 
-def mergePDB(inputPDB, outputPDB, newStart=1):
+def mergePDB(enqa_env_path, inputPDB, outputPDB, newStart=1):
     with open(inputPDB, 'r') as f:
         x = f.readlines()
     filtered = [i for i in x if re.match(r'^ATOM.+', i)]
@@ -19,24 +18,23 @@ def mergePDB(inputPDB, outputPDB, newStart=1):
     chains.sort()
     with open(outputPDB + '.tmp', 'w') as f:
         f.writelines(filtered)
-    merge_cmd = 'pdb_selchain -{} {} | pdb_chain -A | pdb_reres -{} > {}'.format(','.join(chains),
-                                                                                 outputPDB + '.tmp',
-                                                                                 newStart,
-                                                                                 outputPDB)
+    merge_cmd = f"{enqa_env_path}/bin/pdb_selchain -{','.join(chains)} {outputPDB}.tmp | {enqa_env_path}/bin/pdb_chain -A | {enqa_env_path}/bin/pdb_reres -{newStart} > {outputPDB}"
+    print(merge_cmd)
     subprocess.run(args=merge_cmd, shell=True)
     os.remove(outputPDB + '.tmp')
 
-def generate_enqa_scores(indir: str, 
+def generate_enqa_scores(enqa_env_path:str,
+                         enqa_program_path:str,
+                         indir: str, 
                          outdir: str, 
-                         fasta_path: str, 
-                         targetname: str, 
+                         fasta_path: str,
                          model_csv: str,
                          mode: str):
     
     target_dict = {'model': [], 'score': []}
 
     model_size_ratio = {}
-    if os.path.exists(model_csv):
+    if model_csv is not None and os.path.exists(model_csv):
         model_info_df = pd.read_csv(model_csv)
         model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
         target_dict['score_norm'] = []
@@ -53,24 +51,28 @@ def generate_enqa_scores(indir: str,
                 target_dict['score_norm'] += [0.0]
 
     else:
-        os.chdir(EnQA_dir)
+        os.chdir(enqa_program_path)
         
-        modeldir = outdir + '/models'
-        makedir_if_not_exists(modeldir)
+        modeldir = os.path.join(outdir, 'models')
+        os.makedirs(modeldir, exist_ok=True)
 
         for pdb in sorted(os.listdir(indir)):
-            resultfile = outdir + '/' + pdb + '.npy'
+            out_npy_dir = os.path.join(outdir, 'npys')
+            os.makedirs(out_npy_dir, exist_ok=True)
+
+            resultfile = os.path.join(out_npy_dir, pdb, pdb + '.npy')
             if not os.path.exists(resultfile):
+                srcpdb = os.path.join(indir, pdb)
+                trgpdb = os.path.join(modeldir, pdb + '.pdb')
                 if mode == "multimer":
-                    mergePDB(indir + '/' + pdb, modeldir + '/' + pdb + '.pdb')
+                    mergePDB(enqa_env_path, srcpdb, trgpdb)
                 else:
-                    os.system(f"cp {indir}/{pdb} {modeldir}/{pdb}.pdb")
+                    os.system(f"cp {srcpdb} {trgpdb}")
                     
-                cmd = f"python {EnQA_program} --input {modeldir}/{pdb}.pdb --output {outdir}/{pdb}"
+                cmd = f"{enqa_env_path}/bin/python {EnQA_program} --input {trgpdb} --output {out_npy_dir}/{pdb}"
                 try:
                     print(cmd)
                     os.system(cmd)
-                    os.system(f"cp {outdir}/{pdb}/{pdb}.npy {outdir}/{pdb}.npy")
                 except Exception as e:
                     print(e)
 
@@ -93,7 +95,7 @@ def generate_enqa_scores(indir: str,
                 if 'score_norm' in target_dict:
                     target_dict['score_norm'] += [0.0]
 
-    pd.DataFrame(target_dict).to_csv(outdir + '/' + targetname + '.csv')
+    pd.DataFrame(target_dict).to_csv(os.path.join(outdir, 'enqa.csv'))
     
 
 if __name__ == '__main__':
@@ -101,25 +103,21 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--interface_dir', type=str, default="1111", required=False)
-    parser.add_argument('--fastadir', type=str, required=True)
+    parser.add_argument('--model_size_csv', type=str, required=False)
+    parser.add_argument('--fasta_path', type=str, required=True)
+    parser.add_argument('--enqa_program_path', type=str, required=True)
+    parser.add_argument('--enqa_env_path', type=str, required=True)
     parser.add_argument('--mode', type=str, default="multimer", required=False)
 
     args = parser.parse_args()
 
-    for target in os.listdir(args.indir):
-        outdir = args.outdir + '/' + target
-        makedir_if_not_exists(outdir)
-
-        if os.path.exists(outdir + '/' + target + '.csv'):
-            continue
-
-        generate_enqa_scores(indir=args.indir + '/' + target,
-                             fasta_path=args.fastadir + '/' + target + '.fasta',  
-                             outdir=outdir, 
-                             targetname=target, 
-                             model_csv=args.interface_dir + '/' + target + '.csv',
-                             mode=args.mode)
+    generate_enqa_scores(enqa_env_path=args.enqa_env_path,
+                         enqa_program_path=args.enqa_program_path,
+                         indir=args.indir,
+                         fasta_path=args.fasta_path,
+                         outdir=args.outdir,
+                         model_csv=args.model_size_csv,
+                         mode=args.mode)
 
 
 

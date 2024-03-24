@@ -20,10 +20,10 @@ def read_tmscore(infile):
 def run_command(inparams):
     tmscore_program, indir, pdb1, pdb2, outdir = inparams
     cmd = f"{tmscore_program} {indir}/{pdb1} {indir}/{pdb2} > {outdir}/{pdb1}_{pdb2}.tmscore"
-    print(cmd)
+    # print(cmd)
     os.system(cmd)
     
-def run_pairwise(tmscore_program, indir, scoredir, outfile1, outfile2):
+def run_pairwise(tmscore_program, indir, scoredir, outfile1, outfile2, process_num):
 
     pdbs = sorted(os.listdir(indir))
 
@@ -34,12 +34,12 @@ def run_pairwise(tmscore_program, indir, scoredir, outfile1, outfile2):
             pdb2 = pdbs[j]
             if pdb1 == pdb2:
                 continue
-            resultfile = f"{scoredir}/{pdb1}_{pdb2}.tmscore"
+            resultfile = os.path.join(scoredir, f"{pdb1}_{pdb2}.tmscore")
             if os.path.exists(resultfile) and len(open(resultfile).readlines()) > 15:
                 continue
             process_list.append([tmscore_program, indir, pdb1, pdb2, scoredir])
 
-    pool = Pool(processes=120)
+    pool = Pool(processes=process_num)
     results = pool.map(run_command, process_list)
     pool.close()
     pool.join()
@@ -51,7 +51,7 @@ def run_pairwise(tmscore_program, indir, scoredir, outfile1, outfile2):
             pdb2 = pdbs[j]
             if pdb1 == pdb2:
                 continue
-            tmscore_file = f"{scoredir}/{pdb1}_{pdb2}.tmscore"
+            tmscore_file = os.path.join(scoredir, f"{pdb1}_{pdb2}.tmscore")
             if not os.path.exists(tmscore_file):
                 raise Exception(f"cannot find {tmscore_file}")
             
@@ -85,17 +85,14 @@ if __name__ == '__main__':
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--tmscore_program', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
+    parser.add_argument('--process_num', type=int, default=40)
 
     args = parser.parse_args()
 
-    for target in os.listdir(args.indir):
-        #if os.path.exists(args.outdir + '/' + target + '.csv'):
-        #    continue
+    outfile1 = os.path.join(args.outdir, 'pairwise_tmscore.csv')
+    outfile2 = os.path.join(args.outdir, 'pairwise_gdtscore.csv')
 
-        scoredir = args.outdir + '/' + target
-        makedir_if_not_exists(scoredir)
+    scoredir = os.path.join(args.outdir, 'scores')
+    os.makedirs(scoredir, exist_ok=True)
 
-        outfile1 = args.outdir + '/' + target + '_tmscore.csv'
-        outfile2 = args.outdir + '/' + target + '_gdtscore.csv'
-
-        run_pairwise(args.tmscore_program, args.indir + '/' + target, scoredir, outfile1, outfile2)
+    run_pairwise(args.tmscore_program, args.indir, scoredir, outfile1, outfile2, args.process_num)

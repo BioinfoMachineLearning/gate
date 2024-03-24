@@ -21,7 +21,7 @@ def _parse_args():
     parser = argparse.ArgumentParser(description = desc)
     parser.add_argument("--indir", required=True)
     parser.add_argument("--outdir", required=True)
-    parser.add_argument("--procnum", required=True)
+    parser.add_argument("--procnum", default=40, required=False)
     return parser.parse_args() 
 
 def _crash_out(error, out_path):
@@ -112,77 +112,71 @@ def _cal_interface_score(inparams):
 
 def main():
     args = _parse_args()
-    results = {}
-    for target in os.listdir(args.indir):
-        if target.find('.csv') > 0:
-            continue
-        print(f"Processing {target}")
-        pdbs = sorted(os.listdir(args.indir + '/' + target))
-        process_list = []
-        for i in range(len(pdbs)):
-            for j in range(len(pdbs)):
-                pdb1 = pdbs[i]
-                pdb2 = pdbs[j]
-                if pdb1 == pdb2:
-                    continue
-                outfile = f"{args.outdir}/{target}/{pdb1}_{pdb2}.json"
-                if os.path.exists(outfile):
-                    continue
-                process_list.append([args.indir + '/' + target, pdb1, pdb2, args.outdir + '/' + target])
+    
+    os.makedirs(args.outdir, exist_ok=True)
 
-        if not os.path.exists(args.outdir + '/' + target):
-            os.makedirs(args.outdir + '/' + target)
-
-        pool = Pool(processes=int(args.procnum))
-        results = pool.map(_cal_interface_score, process_list)
-        pool.close()
-        pool.join()
-
-        print("111111111111111111111111")
-        scores_dict = {'cad_score': {}, 'lddt': {}}
-        for i in range(len(pdbs)):
-            for j in range(len(pdbs)):
-                pdb1 = pdbs[i]
-                pdb2 = pdbs[j]
-                if pdb1 == pdb2:
-                    continue
-                jsonfile = f"{args.outdir}/{target}/{pdb1}_{pdb2}.json"
-                if not os.path.exists(jsonfile):
-                    raise Exception(f"cannot find {jsonfile}")
-                
-                with open(jsonfile) as f:
-                    data = json.load(f)
-                    scores_dict['lddt'][f"{pdb1}_{pdb2}"] = data["lddt"]
-                    scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
-                    
-
-        print("222222222222222222222222")
-        lddt_dict, cad_score_dict = {}, {}
-        for i in range(len(pdbs)):
+    scoredir = os.path.join(args.outdir, 'scores')
+    os.makedirs(scoredir, exist_ok=True)
+    
+    pdbs = sorted(os.listdir(args.indir))
+    process_list = []
+    for i in range(len(pdbs)):
+        for j in range(len(pdbs)):
             pdb1 = pdbs[i]
-            lddts, cad_scores = [], []
-            for j in range(len(pdbs)):
-                pdb2 = pdbs[j]
-                lddt, cad_score = 1, 1
-                if pdb1 != pdb2:
-                    if f"{pdb1}_{pdb2}" not in scores_dict['lddt']:
-                        print(f"Cannot find {pdb1}_{pdb2}!")
+            pdb2 = pdbs[j]
+            if pdb1 == pdb2:
+                continue
+            outfile = os.path.join(scoredir, f"{pdb1}_{pdb2}.json")
+            if os.path.exists(outfile):
+                continue
+            process_list.append([args.indir, pdb1, pdb2, scoredir])
 
-                    if f"{pdb1}_{pdb2}" not in scores_dict['cad_score']:
-                        print(f"Cannot find {pdb1}_{pdb2}!")
+    pool = Pool(processes=int(args.procnum))
+    results = pool.map(_cal_interface_score, process_list)
+    pool.close()
+    pool.join()
 
-                    lddt = scores_dict['lddt'][f"{pdb1}_{pdb2}"]
-                    cad_score = scores_dict['cad_score'][f"{pdb1}_{pdb2}"]
+    scores_dict = {'cad_score': {}, 'lddt': {}}
+    for i in range(len(pdbs)):
+        for j in range(len(pdbs)):
+            pdb1 = pdbs[i]
+            pdb2 = pdbs[j]
+            if pdb1 == pdb2:
+                continue
+            jsonfile = os.path.join(scoredir, f"{pdb1}_{pdb2}.json")
+            if not os.path.exists(jsonfile):
+                raise Exception(f"cannot find {jsonfile}")
+            
+            with open(jsonfile) as f:
+                data = json.load(f)
+                scores_dict['lddt'][f"{pdb1}_{pdb2}"] = data["lddt"]
+                scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
+                
+    lddt_dict, cad_score_dict = {}, {}
+    for i in range(len(pdbs)):
+        pdb1 = pdbs[i]
+        lddts, cad_scores = [], []
+        for j in range(len(pdbs)):
+            pdb2 = pdbs[j]
+            lddt, cad_score = 1, 1
+            if pdb1 != pdb2:
+                if f"{pdb1}_{pdb2}" not in scores_dict['lddt']:
+                    print(f"Cannot find {pdb1}_{pdb2}!")
 
-                lddts += [lddt]
-                cad_scores += [cad_score]
+                if f"{pdb1}_{pdb2}" not in scores_dict['cad_score']:
+                    print(f"Cannot find {pdb1}_{pdb2}!")
 
-            lddt_dict[pdb1] = lddts
-            cad_score_dict[pdb1] = cad_scores
+                lddt = scores_dict['lddt'][f"{pdb1}_{pdb2}"]
+                cad_score = scores_dict['cad_score'][f"{pdb1}_{pdb2}"]
 
-        print("3333333333333333333333333")
-        pd.DataFrame(lddt_dict).to_csv(args.outdir + '/' + target + '_lddt.csv')
-        pd.DataFrame(cad_score_dict).to_csv(args.outdir + '/' + target + '_cad_score.csv')
+            lddts += [lddt]
+            cad_scores += [cad_score]
+
+        lddt_dict[pdb1] = lddts
+        cad_score_dict[pdb1] = cad_scores
+
+    pd.DataFrame(lddt_dict).to_csv(os.path.join(args.outdir, 'lddt.csv'))
+    pd.DataFrame(cad_score_dict).to_csv(os.path.join(args.outdir, 'cad_score.csv'))
 
 
 if __name__ == '__main__':
