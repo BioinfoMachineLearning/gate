@@ -47,7 +47,7 @@ def cli_main():
     args = parser.parse_args()
 
     device = torch.device('cuda')  # set cuda device
-    
+
     targetname = open(args.fasta_path).readlines()[0].rstrip('\n')[1:]
 
     features_monomer = features_monomer_dict()
@@ -66,12 +66,18 @@ def cli_main():
 
     print("Start to sample subgraphs......")
     if not os.path.exists(os.path.join(args.output_dir, 'sample.done')):
-        sample_models_by_kmeans_monomer(pairwise_gdtscore_file=features_monomer.pairwise_gdtscore, 
-                                        pairwise_tmscore_file=features_monomer.pairwise_tmscore, 
-                                        pairwise_cad_score_file=features_monomer.pairwise_cad_score, 
-                                        pairwise_lddt_file=features_monomer.pairwise_lddt,
-                                        sample_number_per_target=3000,
-                                        outdir=sample_dir)
+
+        model_to_cluster = sample_models_by_kmeans_monomer(pairwise_gdtscore_file=features_monomer.pairwise_gdtscore, 
+                                                           pairwise_tmscore_file=features_monomer.pairwise_tmscore, 
+                                                           pairwise_cad_score_file=features_monomer.pairwise_cad_score, 
+                                                           pairwise_lddt_file=features_monomer.pairwise_lddt,
+                                                           sample_number_per_target=3000,
+                                                           outdir=sample_dir)
+
+        with open(os.path.join(args.output_dir, 'cluster.txt'), 'w') as fw:
+            for modelname in model_to_cluster:
+                fw.write(f"{modelname}\t{model_to_cluster[modelname]}\n")
+
         os.system(f"touch {os.path.join(args.output_dir, 'sample.done')}")
 
     print("Generating dgl files for the subgraphs.....")
@@ -103,6 +109,8 @@ def cli_main():
 
         test_data = DGLData(dgl_folder=dgl_dir)
         
+        prediction_dfs = []
+
         for fold in range(10):
 
             fold_model_config = GATE_MODELS[gate_model_name]['fold' + str(fold)]
@@ -167,12 +175,38 @@ def cli_main():
 
                 normalized_std += [np.std(np.array(target_pred_subgraph_scores[modelname])) / mean_score]
 
-            pd.DataFrame({'model': list(target_pred_subgraph_scores.keys()), 
+            df = pd.DataFrame({'model': list(target_pred_subgraph_scores.keys()), 
                             'score': ensemble_scores, 
                             'sample_count': ensemble_count, 
                             'std': std, 
-                            "std_norm": normalized_std}).to_csv(os.path.join(prediction_dir, f'fold{fold}.csv'))
-    
+                            "std_norm": normalized_std})
+            df.to_csv(os.path.join(prediction_dir, f'fold{fold}.csv'))
+
+            prediction_dfs += [df]
+
+        prev_df = None
+        for i in range(10):
+            curr_df = prediction_dfs[i].add_suffix(f"{i + 1}")
+            curr_df['model'] = curr_df[f'model{i + 1}']
+            curr_df = curr_df.drop([f'model{i + 1}'], axis=1)
+            if prev_df is None:
+                prev_df = curr_df
+            else:
+                prev_df = prev_df.merge(curr_df, on=f'model', how="inner")
+        
+        print(prev_df)
+        avg_scores = []
+        for i in range(len(prev_df)):
+            sum_score = 0
+            for j in range(len(prediction_dfs)):
+                sum_score += prev_df.loc[i, f"score{j+1}"]
+
+            avg_scores += [sum_score/len(prediction_dfs)]
+        
+        models = prev_df['model']
+        
+        pd.DataFrame({'model': models, 'score': avg_scores}).to_csv(os.path.join(prediction_dir, 'ensemble.csv'))
+
 if __name__ == '__main__':
     cli_main()
 

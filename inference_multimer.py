@@ -63,32 +63,47 @@ def cli_main():
 
     print("Start to sample subgraphs......")
     if not os.path.exists(os.path.join(args.output_dir, 'sample.done')):
-        sample_models_by_kmeans(pairwise_usalign_file=features_multimer.pairwise_usalign, 
-                                pairwise_mmalign_file=features_multimer.pairwise_mmalign, 
-                                pairwise_qsscore_file=features_multimer.pairwise_qsscore, 
-                                pairwise_dockq_wave_file=features_multimer.pairwise_dockq_wave, 
-                                pairwise_dockq_ave_file=features_multimer.pairwise_dockq_ave, 
-                                pairwise_cad_score_file=features_multimer.pairwise_cad_score, 
-                                sample_number_per_target=3000,
-                                outdir=sample_dir)
+        model_to_cluster = sample_models_by_kmeans(pairwise_usalign_file=features_multimer.pairwise_usalign, 
+                                                    pairwise_mmalign_file=features_multimer.pairwise_mmalign, 
+                                                    pairwise_qsscore_file=features_multimer.pairwise_qsscore, 
+                                                    pairwise_dockq_wave_file=features_multimer.pairwise_dockq_wave, 
+                                                    pairwise_dockq_ave_file=features_multimer.pairwise_dockq_ave, 
+                                                    pairwise_cad_score_file=features_multimer.pairwise_cad_score, 
+                                                    sample_number_per_target=3000,
+                                                    outdir=sample_dir)
+
+        with open(os.path.join(args.output_dir, 'cluster.txt'), 'w') as fw:
+            for modelname in model_to_cluster:
+                fw.write(f"{modelname}\t{model_to_cluster[modelname]}\n")
+
         os.system(f"touch {os.path.join(args.output_dir, 'sample.done')}")
 
     print("Generating dgl files for the subgraphs.....")
 
     dgl_base_dir = os.path.join(args.output_dir, 'dgl')
     
-    configs = {'v7_nogcpnet': {'use_af_feature': args.use_af_feature,
-                               'use_gcpnet_ema': False,
-                               'use_interface_pairwise': False},
+    configs = {}
 
-               'v7_gcpnet': {'use_af_feature': args.use_af_feature,
-                             'use_gcpnet_ema': True,
-                             'use_interface_pairwise': False},
+    if args.use_af_feature:
+        configs = {
+                    'v8': {'use_af_feature': args.use_af_feature,
+                        'use_gcpnet_ema': True,
+                        'use_interface_pairwise': True},
+                  }
+    else:
+        configs = {
+                    'v7_nogcpnet': {'use_af_feature': args.use_af_feature,
+                                'use_gcpnet_ema': False,
+                                'use_interface_pairwise': False},
 
-               'v8': {'use_af_feature': args.use_af_feature,
-                      'use_gcpnet_ema': True,
-                      'use_interface_pairwise': True},
-    }
+                    'v7_gcpnet': {'use_af_feature': args.use_af_feature,
+                                    'use_gcpnet_ema': True,
+                                    'use_interface_pairwise': False},
+
+                    'v8': {'use_af_feature': args.use_af_feature,
+                            'use_gcpnet_ema': True,
+                            'use_interface_pairwise': True},
+                  }
     
     for config in configs:
         dgl_dir = os.path.join(dgl_base_dir, config)
@@ -115,20 +130,20 @@ def cli_main():
     gate_model_names, dgl_dirs = [], []
 
     if args.use_af_feature:
-        gate_model_names.append('casp15_inhouse_full_v7_nogcpnet')
-        dgl_dirs.append(os.path.join(dgl_base_dir, "v7_nogcpnet"))
+        # gate_model_names.append('casp15_inhouse_full_v7_nogcpnet')
+        # dgl_dirs.append(os.path.join(dgl_base_dir, "v7_nogcpnet"))
 
-        gate_model_names.append('casp15_inhouse_full_v7_gcpnet')
-        dgl_dirs.append(os.path.join(dgl_base_dir, "v7_gcpnet"))
+        # gate_model_names.append('casp15_inhouse_full_v7_gcpnet')
+        # dgl_dirs.append(os.path.join(dgl_base_dir, "v7_gcpnet"))
 
-        gate_model_names.append('casp15_inhouse_full_v8')
-        dgl_dirs.append(os.path.join(dgl_base_dir, "v8"))
+        # gate_model_names.append('casp15_inhouse_full_v8')
+        # dgl_dirs.append(os.path.join(dgl_base_dir, "v8"))
 
-        gate_model_names.append('casp15_inhouse_top_v7_nogcpnet')
-        dgl_dirs.append(os.path.join(dgl_base_dir, "v7_nogcpnet"))
+        # gate_model_names.append('casp15_inhouse_top_v7_nogcpnet')
+        # dgl_dirs.append(os.path.join(dgl_base_dir, "v7_nogcpnet"))
 
-        gate_model_names.append('casp15_inhouse_top_v7_gcpnet')
-        dgl_dirs.append(os.path.join(dgl_base_dir, "v7_gcpnet"))
+        # gate_model_names.append('casp15_inhouse_top_v7_gcpnet')
+        # dgl_dirs.append(os.path.join(dgl_base_dir, "v7_gcpnet"))
 
         gate_model_names.append('casp15_inhouse_top_v8')
         dgl_dirs.append(os.path.join(dgl_base_dir, "v8"))
@@ -143,6 +158,8 @@ def cli_main():
         gate_model_names.append('casp15_official_v8')
         dgl_dirs.append(os.path.join(dgl_base_dir, "v8"))
 
+    ensemble_dfs = []
+
     for gate_model_name, dgl_dir in zip(gate_model_names, dgl_dirs):
         
         print(dgl_dir)
@@ -151,6 +168,8 @@ def cli_main():
         
         prediction_dir = os.path.join(prediction_base_dir, gate_model_name)
         os.makedirs(prediction_dir, exist_ok=True)
+
+        prediction_dfs = []
 
         for fold in range(10):
 
@@ -216,11 +235,66 @@ def cli_main():
 
                 normalized_std += [np.std(np.array(target_pred_subgraph_scores[modelname])) / mean_score]
 
-            pd.DataFrame({'model': list(target_pred_subgraph_scores.keys()), 
+            df = pd.DataFrame({'model': list(target_pred_subgraph_scores.keys()), 
                             'score': ensemble_scores, 
                             'sample_count': ensemble_count, 
                             'std': std, 
-                            "std_norm": normalized_std}).to_csv(os.path.join(prediction_dir, f'fold{fold}.csv'))
+                            "std_norm": normalized_std})
+            df.to_csv(os.path.join(prediction_dir, f'fold{fold}.csv'))
+
+            prediction_dfs += [df]
+    
+        prev_df = None
+        for i in range(10):
+            curr_df = prediction_dfs[i].add_suffix(f"{i + 1}")
+            curr_df['model'] = curr_df[f'model{i + 1}']
+            curr_df = curr_df.drop([f'model{i + 1}'], axis=1)
+            if prev_df is None:
+                prev_df = curr_df
+            else:
+                prev_df = prev_df.merge(curr_df, on=f'model', how="inner")
+        
+        # print(prev_df)
+        avg_scores = []
+        for i in range(len(prev_df)):
+            sum_score = 0
+            for j in range(len(prediction_dfs)):
+                sum_score += prev_df.loc[i, f"score{j+1}"]
+
+            avg_scores += [sum_score/len(prediction_dfs)]
+        
+        models = prev_df['model']
+        
+        ensemble_df = pd.DataFrame({'model': models, 'score': avg_scores})
+        ensemble_df.to_csv(os.path.join(prediction_dir, 'ensemble.csv'))
+
+        ensemble_dfs += [ensemble_df]
+
+    if not args.use_af_feature:
+
+        prev_df = None
+        for i in range(len(ensemble_dfs)):
+            curr_df = ensemble_dfs[i].add_suffix(f"{i + 1}")
+            curr_df['model'] = curr_df[f'model{i + 1}']
+            curr_df = curr_df.drop([f'model{i + 1}'], axis=1)
+            if prev_df is None:
+                prev_df = curr_df
+            else:
+                prev_df = prev_df.merge(curr_df, on=f'model', how="inner")
+        
+        # print(prev_df)
+        avg_scores = []
+        for i in range(len(prev_df)):
+            sum_score = 0
+            for j in range(len(ensemble_dfs)):
+                sum_score += prev_df.loc[i, f"score{j+1}"]
+
+            avg_scores += [sum_score/len(ensemble_dfs)]
+        
+        models = prev_df['model']
+        
+        ensemble_df = pd.DataFrame({'model': models, 'score': avg_scores})
+        ensemble_df.to_csv(os.path.join(args.output_dir, 'ensemble.csv'))
 
 
 if __name__ == '__main__':

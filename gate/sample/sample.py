@@ -29,6 +29,8 @@ def sample_models_by_kmeans(pairwise_usalign_file,
 
     mean_pairwise_score = np.mean(np.array(pairwise_usalign_graph))
 
+    model_to_cluster = None
+
     if mean_pairwise_score < 0.8:
         
         pairwise_usalign_graph_np = np.array(pairwise_usalign_graph).T
@@ -48,6 +50,8 @@ def sample_models_by_kmeans(pairwise_usalign_file,
         sample_number_in_cluster = int(50 / kmeans_cluster_num)
 
         kmeans = KMeans(n_clusters=kmeans_cluster_num, random_state=0, n_init="auto").fit(pairwise_usalign_graph_np)
+        
+        model_to_cluster = {pairwise_usalign_graph.columns[i]: kmeans.labels_[i] for i in range(len(pairwise_usalign_graph.columns))}
 
         for i in range(sample_number_per_target):
             subgraph_indices = []
@@ -133,6 +137,10 @@ def sample_models_by_kmeans(pairwise_usalign_file,
 
             subgraph_df.to_csv(f"{outdir}/subgraph_cad_score_{i}.csv")
 
+        model_to_cluster = {pairwise_usalign_graph.columns[i]: "0" for i in range(len(pairwise_usalign_graph.columns))}
+
+    return model_to_cluster
+
 def sample_models_by_kmeans_monomer(pairwise_gdtscore_file,
                                     pairwise_tmscore_file,
                                     pairwise_cad_score_file,
@@ -155,6 +163,8 @@ def sample_models_by_kmeans_monomer(pairwise_gdtscore_file,
 
     mean_pairwise_score = np.mean(np.array(pairwise_gdtscore_graph))
 
+    model_to_cluster = None
+
     if mean_pairwise_score < 0.8:
         
         pairwise_gdtscore_graph_np = np.array(pairwise_gdtscore_graph).T
@@ -172,6 +182,7 @@ def sample_models_by_kmeans_monomer(pairwise_gdtscore_file,
         sample_number_in_cluster = int(30 / kmeans_cluster_num)
 
         kmeans = KMeans(n_clusters=kmeans_cluster_num, random_state=0, n_init="auto").fit(pairwise_gdtscore_graph_np)
+        model_to_cluster = {pairwise_gdtscore_graph.columns[i]: kmeans.labels_[i] for i in range(len(pairwise_gdtscore_graph.columns))}
 
         for i in range(sample_number_per_target):
             subgraph_indices = []
@@ -240,4 +251,7 @@ def sample_models_by_kmeans_monomer(pairwise_gdtscore_file,
             subgraph_df = pairwise_lddt_graph[selected_columns].loc[subgraph_indices]
 
             subgraph_df.to_csv(f"{outdir}/subgraph_lddt_{i}.csv")
-        
+
+        model_to_cluster = {pairwise_gdtscore_graph.columns[i]: "0" for i in range(len(pairwise_gdtscore_graph.columns))}
+
+    return model_to_cluster
