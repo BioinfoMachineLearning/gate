@@ -21,7 +21,7 @@ def complex_feature_generation(fasta_path, input_model_dir, output_dir, config, 
 
     # filter models by sequences
     print("################## 1. Aligning models by sequence #########################")
-    cmd = f"python {config.scripts.align_model_script} --fasta_path {fasta_path} --modeldir {input_model_dir} --outdir {aligned_model_dir}"
+    cmd = f"python {config.scripts.align_model_script} --clustalw_program {config.tools.clustalw_program} --fasta_path {fasta_path} --modeldir {input_model_dir} --outdir {aligned_model_dir}"
     print(cmd)
     os.system(cmd)
 

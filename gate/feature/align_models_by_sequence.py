@@ -12,7 +12,6 @@ from scipy.optimize import linear_sum_assignment
 import json
 
 PDB_CHAIN_IDS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-clustalw_program = '/home/jl4mc/gate/tools/clustalw1.83/clustalw'
 
 class Chain:
     def __init__(self, sequence, count):
@@ -31,7 +30,7 @@ def read_clust_aln_file(infile):
     return casp_align_seq, pdb_align_seq
 
 
-def align_sequence(casp_seq, pdb_seq, outfile):
+def align_sequence(clustalw_program, casp_seq, pdb_seq, outfile):
 
     with open(outfile + '.aln', 'w') as fw: 
         fw.write(f"%CASP\n{casp_seq}\n%PDB\n{pdb_seq}")
@@ -42,8 +41,8 @@ def align_sequence(casp_seq, pdb_seq, outfile):
     return read_clust_aln_file(f"{outfile}.clust.aln")
 
 
-def cal_identitcal_ratio(casp_seq, pdb_seq, outfile):
-    casp_aln, pdb_aln = align_sequence(casp_seq, pdb_seq, outfile)
+def cal_identitcal_ratio(clustalw_program, casp_seq, pdb_seq, outfile):
+    casp_aln, pdb_aln = align_sequence(clustalw_program, casp_seq, pdb_seq, outfile)
     return casp_aln, pdb_aln, len([i for i in range(len(casp_aln)) if casp_aln[i] != '-' and casp_aln[i] == pdb_aln[i]])
 
 # s input str
@@ -54,14 +53,14 @@ def find_all(s, c):
         yield idx
         idx = s.find(c, idx + 1)
 
-def align_pdb_sequences_with_casp_sequences(chain_pdbs, sequence_id_map):
+def align_pdb_sequences_with_casp_sequences(clustalw_program, chain_pdbs, sequence_id_map):
     chain_align_matrix = []
     chain_ids = []
     for chain_pdb in chain_pdbs:
         chain_sequence = get_sequence(chain_pdb)
         identical_ratios = []
         for sequence in sequence_id_map:
-            _, _, identical_ratio = cal_identitcal_ratio(sequence, chain_sequence['sequence'], chain_pdb + '_chain' + sequence_id_map[sequence]['chain_id'])
+            _, _, identical_ratio = cal_identitcal_ratio(clustalw_program, sequence, chain_sequence['sequence'], chain_pdb + '_chain' + sequence_id_map[sequence]['chain_id'])
             for _ in range(sequence_id_map[sequence]['count']):
                 identical_ratios += [identical_ratio]
                 chain_ids += [sequence_id_map[sequence]['chain_id']]
@@ -72,7 +71,7 @@ def align_pdb_sequences_with_casp_sequences(chain_pdbs, sequence_id_map):
     return row_ind, col_ind, chain_ids
 
 
-def get_chain_mapping(sequence_id_map, inpdb, pdbdir):
+def get_chain_mapping(clustalw_program, sequence_id_map, inpdb, pdbdir):
 
     chain_pdbs_raw = split_pdb(inpdb, pdbdir)
     chain_pdbs = []
@@ -83,7 +82,7 @@ def get_chain_mapping(sequence_id_map, inpdb, pdbdir):
     # get chain mapping from pdb to fasta file
     chain_mapping = {}
     
-    pdb_indices, chain_ids_indices, chain_ids = align_pdb_sequences_with_casp_sequences(chain_pdbs, sequence_id_map)
+    pdb_indices, chain_ids_indices, chain_ids = align_pdb_sequences_with_casp_sequences(clustalw_program, chain_pdbs, sequence_id_map)
     
     for pdb_index, chain_index in zip(pdb_indices, chain_ids_indices):
         chain_pdb = chain_pdbs[pdb_index]
@@ -147,21 +146,22 @@ def merge_chain_pdbs(chain_mapping, outfile):
 
 def filter_single_model(inparams):
     
-    sequence_id_map, inpdb, pdbdir, outpdb = inparams
+    clustalw_program, sequence_id_map, inpdb, pdbdir, outpdb = inparams
 
     # print(f"Filtering {inpdb}")
 
     # get chain mapping from pdb to fasta file
-    chain_mapping = get_chain_mapping(sequence_id_map=sequence_id_map, 
-                                        inpdb=inpdb,
-                                        pdbdir=pdbdir)
+    chain_mapping = get_chain_mapping(clustalw_program=clustalw_program,
+                                      sequence_id_map=sequence_id_map, 
+                                      inpdb=inpdb,
+                                      pdbdir=pdbdir)
     # print(chain_mapping)
     merge_chain_pdbs(chain_mapping, outpdb)
 
     os.system(f"rm -rf {pdbdir}")
 
 
-def align_models(fasta_path, outdir, input_model_dir):
+def align_models(clustalw_program, fasta_path, outdir, input_model_dir):
 
     # read sequences from fasta file
     sequences, descriptions = parse_fasta(open(fasta_path).read())
@@ -193,7 +193,7 @@ def align_models(fasta_path, outdir, input_model_dir):
 
         makedir_if_not_exists(workdir)
 
-        process_list.append([sequence_id_map, input_model_dir + '/' + model, workdir, outdir + '/' + model.replace('.pdb', '')])
+        process_list.append([clustalw_program, sequence_id_map, input_model_dir + '/' + model, workdir, outdir + '/' + model.replace('.pdb', '')])
 
     pool = Pool(processes=40)
     results = pool.map(filter_single_model, process_list)
@@ -207,7 +207,9 @@ if __name__ == '__main__':
     parser.add_argument('--fasta_path', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--modeldir', type=str, required=True)
+    parser.add_argument('--clustalw_program', type=str, required=True)
+    
     args = parser.parse_args()
 
-    align_models(args.fasta_path, args.outdir, args.modeldir)
+    align_models(args.clustalw_program, args.fasta_path, args.outdir, args.modeldir)
 
