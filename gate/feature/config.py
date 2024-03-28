@@ -36,6 +36,8 @@ CONFIG = ml_collections.ConfigDict({
         'gcpnet_ema': os.path.join(ROOTDIR, 'mambaforge', 'envs', 'GCPNet-EMA'),
         'cdpred': os.path.join(ROOTDIR, 'mambaforge', 'envs', 'cdpred'),
         'openstructure': 'registry.scicore.unibas.ch/schwede/openstructure:latest',
+        'use_docker': True,
+        'openstructure_sif': 'registry.scicore.unibas.ch/schwede/openstructure:latest',
     },
     'tools': {
         'tmscore_program': os.path.join(ROOTDIR, 'tools', 'TMscore'),

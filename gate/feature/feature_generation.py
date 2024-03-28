@@ -63,8 +63,12 @@ def complex_feature_generation(fasta_path, input_model_dir, output_dir, config, 
 
     if not os.path.exists(features_multimer.pairwise_dockq_wave):
         script_name = os.path.basename(config.scripts.interface_pairwise_script)
-        cmd = f"docker run --rm -v {config.scripts.interface_pairwise_script}:/home/{script_name} -v {output_dir}:/home " + '-u $(id -u ${USER}):$(id -g ${USER}) ' + config.envs.openstructure
-        cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)}"
+        if config.envs.use_docker:
+            cmd = f"docker run --rm -v {config.scripts.interface_pairwise_script}:/home/{script_name} -v {output_dir}:/home " + '-u $(id -u ${USER}):$(id -g ${USER}) ' + config.envs.openstructure
+            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)}"
+        else:
+            cmd = f"singularity exec -B {config.scripts.interface_pairwise_script}:/home/{script_name} -B {output_dir}:/home " + config.envs.openstructure_sif 
+            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)}"
         print(cmd)
         os.system(cmd)
     else:
@@ -77,8 +81,12 @@ def complex_feature_generation(fasta_path, input_model_dir, output_dir, config, 
     features_multimer.pairwise_qsscore = os.path.join(workdir, 'qsscore.csv')
     if not os.path.exists(features_multimer.pairwise_qsscore):
         script_name = os.path.basename(config.scripts.qsscore_pairwise_script)
-        cmd = f"docker run --rm -v {config.scripts.qsscore_pairwise_script}:/home/{script_name} -v {output_dir}:/home " + '-u $(id -u ${USER}):$(id -g ${USER}) ' + config.envs.openstructure
-        cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} --mmalign_score_dir /home/feature/mmalign_pairwise/scores"
+        if config.envs.use_docker:
+            cmd = f"docker run --rm -v {config.scripts.qsscore_pairwise_script}:/home/{script_name} -v {output_dir}:/home " + '-u $(id -u ${USER}):$(id -g ${USER}) ' + config.envs.openstructure
+            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} --mmalign_score_dir /home/feature/mmalign_pairwise/scores"
+        else:
+            cmd = f"singularity exec -B {config.scripts.qsscore_pairwise_script}:/home/{script_name} -B {output_dir}:/home " + config.envs.openstructure_sif 
+            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} --mmalign_score_dir /home/feature/mmalign_pairwise/scores"
         print(cmd)
         os.system(cmd)
     else:
@@ -224,8 +232,12 @@ def monomer_feature_generation(targetname, fasta_path, input_model_dir, output_d
     features_monomer.pairwise_cad_score = os.path.join(workdir, 'cad_score.csv')
     if not os.path.exists(features_monomer.pairwise_lddt):
         script_name = os.path.basename(config.scripts.interface_pairwise_ts_script)
-        cmd = f"docker run --rm -v {config.scripts.interface_pairwise_ts_script}:/home/{script_name} -v {output_dir}:/home " + '-u $(id -u ${USER}):$(id -g ${USER}) ' + config.envs.openstructure
-        cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} "
+        if config.envs.use_docker:
+            cmd = f"docker run --rm -v {config.scripts.interface_pairwise_ts_script}:/home/{script_name} -v {output_dir}:/home " + '-u $(id -u ${USER}):$(id -g ${USER}) ' + config.envs.openstructure
+            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} "
+        else:
+            cmd = f"singularity exec -B {config.scripts.interface_pairwise_ts_script}:/home/{script_name} -B {output_dir}:/home " + config.envs.openstructure_sif 
+            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} "
         os.system(cmd)
     else:
         print("interface pairwise similarity scores using TMscore has been generated!")
