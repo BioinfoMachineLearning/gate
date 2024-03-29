@@ -19,7 +19,8 @@ def read_tmscore(infile):
 
 def run_command(inparams):
     tmscore_program, indir, pdb1, pdb2, outdir = inparams
-    cmd = f"{tmscore_program} {indir}/{pdb1} {indir}/{pdb2} > {outdir}/{pdb1}_{pdb2}.tmscore"
+    os.chdir(indir)
+    cmd = f"{tmscore_program} {pdb1} {pdb2} > {outdir}/{pdb1}_{pdb2}.tmscore"
     # print(cmd)
     os.system(cmd)
     

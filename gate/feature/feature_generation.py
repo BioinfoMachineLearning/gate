@@ -68,7 +68,7 @@ def complex_feature_generation(fasta_path, input_model_dir, output_dir, config, 
             cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)}"
         else:
             cmd = f"singularity exec -B {config.scripts.interface_pairwise_script}:/home/{script_name} -B {output_dir}:/home " + config.envs.openstructure_sif 
-            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)}"
+            cmd += f" python3 /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)}"
         print(cmd)
         os.system(cmd)
     else:
@@ -86,7 +86,7 @@ def complex_feature_generation(fasta_path, input_model_dir, output_dir, config, 
             cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} --mmalign_score_dir /home/feature/mmalign_pairwise/scores"
         else:
             cmd = f"singularity exec -B {config.scripts.qsscore_pairwise_script}:/home/{script_name} -B {output_dir}:/home " + config.envs.openstructure_sif 
-            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} --mmalign_score_dir /home/feature/mmalign_pairwise/scores"
+            cmd += f" python3 /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} --mmalign_score_dir /home/feature/mmalign_pairwise/scores"
         print(cmd)
         os.system(cmd)
     else:
@@ -237,7 +237,7 @@ def monomer_feature_generation(targetname, fasta_path, input_model_dir, output_d
             cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} "
         else:
             cmd = f"singularity exec -B {config.scripts.interface_pairwise_ts_script}:/home/{script_name} -B {output_dir}:/home " + config.envs.openstructure_sif 
-            cmd += f" /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} "
+            cmd += f" python3 /home/{script_name} --indir /home/{os.path.basename(aligned_model_dir)} --outdir /home/feature/{os.path.basename(workdir)} "
         os.system(cmd)
     else:
         print("interface pairwise similarity scores using TMscore has been generated!")

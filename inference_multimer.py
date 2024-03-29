@@ -177,7 +177,7 @@ def cli_main():
 
             test_loader = DataLoader(test_data,
                                     batch_size=fold_model_config.batch_size,
-                                    num_workers=32,
+                                    num_workers=4,
                                     pin_memory=True,
                                     collate_fn=collate,
                                     shuffle=False)

@@ -11,6 +11,8 @@ from ost.mol.alg.qsscore import QSScorer
 from ost.io import ReadStereoChemicalPropsFile
 from ost.mol.alg import CheckStructure, Molck, MolckSettings
 import pandas as pd
+from ost import seq
+from ost import mol
 
 def _parse_args():
     desc = ("Computes QS-scores based on chain mappings from MMalign as "
