@@ -21,7 +21,7 @@ def _parse_args():
     parser = argparse.ArgumentParser(description = desc)
     parser.add_argument("--indir", required=True)
     parser.add_argument("--outdir", required=True)
-    parser.add_argument("--procnum", default=40, required=False)
+    parser.add_argument("--procnum", default=80, required=False)
     return parser.parse_args() 
 
 def _crash_out(error, out_path):

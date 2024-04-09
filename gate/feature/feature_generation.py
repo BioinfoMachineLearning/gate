@@ -104,7 +104,11 @@ def complex_feature_generation(fasta_path, input_model_dir, output_dir, config, 
               f"--jackhmmer_database {config.databases.jackhmmer_database} --jackhmmer_binary {config.tools.jackhmmer_binary_path} " \
               f"--clustalw_program {config.tools.clustalw_program} --cdpred_env_path {config.envs.cdpred} --cdpred_program_path {config.tools.cdpred}"
         print(cmd)
-        os.system(cmd)
+        try:
+            os.system(cmd)
+        except Exception as e:
+            print(e)
+            raise Exception("icps generation failed!")
     else:
         print("icps scores has been generated!")
 

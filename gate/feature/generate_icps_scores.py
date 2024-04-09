@@ -399,7 +399,7 @@ def generate_icps_scores(fasta_path, outdir, pairwise_score_csv, input_model_dir
         msadir = os.path.join(outdir, 'cdpred')
         if chain_id1 == chain_id2:
             a3m = os.path.join(msadir, chain_id1, f"{chain_id1}.a3m")
-            run_cdpred_list.append([chain_id1, chain_id2, [chain_pdbs[chain_id1]], a3m, cdpred_dir])
+            run_cdpred_list.append([cdpred_env_path, cdpred_program_path, chain_id1, chain_id2, [chain_pdbs[chain_id1]], a3m, cdpred_dir])
         else:
             sto1 = os.path.join(msadir, chain_id1, f"{chain_id1}.sto")
             sto2 = os.path.join(msadir, chain_id2, f"{chain_id2}.sto")

@@ -222,12 +222,12 @@ def get_feature(inparams):
         pae_mtx = check_dict['predicted_aligned_error']
         num_inter_pae = int(examine_inter_pae(pae_mtx,seqs,cutoff=cutoff))
         mpDockq_score = float(obtain_mpdockq(pdbfile, check_dict))
-        score_dict = {'pdb': pathlib.Path(pdbfile).stem, 
+        score_dict = {'pdb': os.path.basename(pdbfile), 
                       'iptm_ptm_score': iptm_ptm_score, 
                       'iptm_score': iptm_score, 
                       'mpDockq_score': mpDockq_score, 
                       'num_inter_pae': num_inter_pae}
-        return pathlib.Path(pdbfile).stem, iptm_ptm_score, iptm_score, mpDockq_score, num_inter_pae
+        return os.path.basename(pdbfile), iptm_ptm_score, iptm_score, mpDockq_score, num_inter_pae
     except Exception as e:
         print(e)
         return pdbfile, 0.0, 0.0, 0.0, 0
