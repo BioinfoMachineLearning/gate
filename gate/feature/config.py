@@ -17,6 +17,7 @@ CONFIG = ml_collections.ConfigDict({
         'interface_pairwise_ts_script': os.path.join(ROOTDIR, 'gate', 'feature', 'interface_pairwise_ts.py'),
         
         'icps_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_icps_scores.py'),
+        'model_size_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_model_size.py'),
         'plddt_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_plddt_scores.py'),
         'enqa_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_enqa_scores.py'),
         'dproqa_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_dproqa_scores.py'),

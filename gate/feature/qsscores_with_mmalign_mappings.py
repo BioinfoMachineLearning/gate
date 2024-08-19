@@ -28,7 +28,7 @@ def _parse_args():
     parser.add_argument("--indir")
     parser.add_argument("--mmalign_score_dir")
     parser.add_argument("--outdir")
-    parser.add_argument("--procnum", default=80)
+    parser.add_argument("--procnum", default=180)
     return parser.parse_args() 
 
 def read_qsscore(infile):
@@ -214,7 +214,7 @@ def _process_model(trg, mdl, mmalign_result):
 def _cal_qsscore(inparams):
 
     modeldir, pdb1, pdb2, mmalign_out_dir, outdir = inparams
-    
+    #print(os.path.join(mmalign_out_dir, f"{pdb1}_{pdb2}.mmalign")) 
     mmalign_data = MMalignResult.FromFile(os.path.join(mmalign_out_dir, f"{pdb1}_{pdb2}.mmalign"))
 
     pdb1_ent = io.LoadPDB(os.path.join(modeldir, pdb1))

@@ -124,7 +124,7 @@ def get_sequence_by_chain(chain_id, sequence_id_map):
             return sequence
     return ''
 
-def merge_chain_pdbs(chain_mapping, outfile):
+def merge_chain_pdbs(chain_mapping, outfile, check_format=False):
     # reorder chains based on the stoichiometry
     # e.g., A2B2: AB CD
     chain_idx = 0
@@ -143,25 +143,36 @@ def merge_chain_pdbs(chain_mapping, outfile):
         #print(contents)
         fw.write('\n'.join(contents))
 
+    if check_format:
+        parser = PDBParser(QUIET=True)
+        try:
+            structure2 = parser.get_structure('', outfile)
+        except Exception as e:
+            os.system("rm " + outfile)
+
 
 def filter_single_model(inparams):
     
-    clustalw_program, sequence_id_map, inpdb, pdbdir, outpdb = inparams
+    clustalw_program, sequence_id_map, inpdb, pdbdir, outpdb, check_format = inparams
 
     # print(f"Filtering {inpdb}")
 
     # get chain mapping from pdb to fasta file
-    chain_mapping = get_chain_mapping(clustalw_program=clustalw_program,
-                                      sequence_id_map=sequence_id_map, 
-                                      inpdb=inpdb,
-                                      pdbdir=pdbdir)
-    # print(chain_mapping)
-    merge_chain_pdbs(chain_mapping, outpdb)
+    try:
+        chain_mapping = get_chain_mapping(clustalw_program=clustalw_program,
+                                        sequence_id_map=sequence_id_map, 
+                                        inpdb=inpdb,
+                                        pdbdir=pdbdir)
+        # print(chain_mapping)
+        merge_chain_pdbs(chain_mapping, outpdb, check_format)
+    except Exception as e:
+        print(f"Filtering {inpdb} failed!")
+        print(e)
 
     os.system(f"rm -rf {pdbdir}")
 
 
-def align_models(clustalw_program, fasta_path, outdir, input_model_dir):
+def align_models(clustalw_program, fasta_path, outdir, input_model_dir, check_format):
 
     # read sequences from fasta file
     sequences, descriptions = parse_fasta(open(fasta_path).read())
@@ -193,7 +204,7 @@ def align_models(clustalw_program, fasta_path, outdir, input_model_dir):
 
         makedir_if_not_exists(workdir)
 
-        process_list.append([clustalw_program, sequence_id_map, input_model_dir + '/' + model, workdir, outdir + '/' + model.replace('.pdb', '')])
+        process_list.append([clustalw_program, sequence_id_map, input_model_dir + '/' + model, workdir, outdir + '/' + model.replace('.pdb', ''), check_format])
 
     pool = Pool(processes=40)
     results = pool.map(filter_single_model, process_list)
@@ -208,8 +219,9 @@ if __name__ == '__main__':
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--modeldir', type=str, required=True)
     parser.add_argument('--clustalw_program', type=str, required=True)
-    
+    parser.add_argument('--check_format', default=False, type=lambda x: (str(x).lower() == 'true'))
+
     args = parser.parse_args()
 
-    align_models(args.clustalw_program, args.fasta_path, args.outdir, args.modeldir)
+    align_models(args.clustalw_program, args.fasta_path, args.outdir, args.modeldir, args.check_format)
 

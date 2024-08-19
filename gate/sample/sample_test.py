@@ -15,11 +15,8 @@ def sample_models_by_kmeans(pairwise_usalign_file,
                             sample_number_per_target, 
                             outdir):
 
-    # Generate a random seed
-    random_seed = random.randint(0, 2**32 - 1)
-
-    # Use this seed for further random operations
-    random.seed(random_seed)
+    seed = 111
+    random.seed(seed)
 
     makedir_if_not_exists(outdir)
     
@@ -33,7 +30,7 @@ def sample_models_by_kmeans(pairwise_usalign_file,
     mean_pairwise_score = np.mean(np.array(pairwise_usalign_graph))
 
     model_to_cluster = None
-
+    print(mean_pairwise_score)
     if mean_pairwise_score < 0.8:
         
         pairwise_usalign_graph_np = np.array(pairwise_usalign_graph).T
@@ -53,7 +50,7 @@ def sample_models_by_kmeans(pairwise_usalign_file,
         sample_number_in_cluster = int(50 / kmeans_cluster_num)
 
         kmeans = KMeans(n_clusters=kmeans_cluster_num, random_state=0, n_init="auto").fit(pairwise_usalign_graph_np)
-        
+        print(kmeans_cluster_num)
         model_to_cluster = {pairwise_usalign_graph.columns[i]: kmeans.labels_[i] for i in range(len(pairwise_usalign_graph.columns))}
 
         for i in range(sample_number_per_target):
@@ -73,6 +70,9 @@ def sample_models_by_kmeans(pairwise_usalign_file,
 
             random.shuffle(subgraph_indices)
 
+            print(subgraph_indices)
+            
+            break
             selected_columns = [pairwise_usalign_graph.columns[i] for i in subgraph_indices]
             
             subgraph_df = pairwise_usalign_graph[selected_columns].loc[subgraph_indices]
@@ -144,120 +144,11 @@ def sample_models_by_kmeans(pairwise_usalign_file,
 
     return model_to_cluster
 
-def sample_models_by_kmeans_monomer(pairwise_gdtscore_file,
-                                    pairwise_tmscore_file,
-                                    pairwise_cad_score_file,
-                                    pairwise_lddt_file,
-                                    sample_number_per_target, 
-                                    outdir):
-
-    # Generate a random seed
-    random_seed = random.randint(0, 2**32 - 1)
-
-    # Use this seed for further random operations
-    random.seed(random_seed)
-
-    makedir_if_not_exists(outdir)
-    
-    pairwise_gdtscore_graph = pd.read_csv(pairwise_gdtscore_file, index_col=[0])
-
-    pairwise_tmscore_graph = pd.read_csv(pairwise_tmscore_file, index_col=[0])
-    
-    pairwise_cad_score_graph = pd.read_csv(pairwise_cad_score_file, index_col=[0])
-
-    pairwise_lddt_graph = pd.read_csv(pairwise_lddt_file, index_col=[0])
-
-    mean_pairwise_score = np.mean(np.array(pairwise_gdtscore_graph))
-
-    model_to_cluster = None
-
-    if mean_pairwise_score < 0.8:
-        
-        pairwise_gdtscore_graph_np = np.array(pairwise_gdtscore_graph).T
-        pairwise_tmscore_graph_np = np.array(pairwise_tmscore_graph).T
-        pairwise_cad_score_graph_np = np.array(pairwise_cad_score_graph).T
-        pairwise_lddt_graph_np = np.array(pairwise_lddt_graph).T
-
-        silhouette_scores = []
-        for k in range(2, 10):
-            kmeans =  KMeans(n_clusters=k, random_state=0, n_init="auto").fit(pairwise_gdtscore_graph_np)
-            cluster_labels = kmeans.fit_predict(pairwise_gdtscore_graph_np)
-            silhouette_scores.append(silhouette_score(pairwise_gdtscore_graph_np, cluster_labels))
-
-        kmeans_cluster_num = 2 + np.argmax(silhouette_scores)
-        sample_number_in_cluster = int(30 / kmeans_cluster_num)
-
-        kmeans = KMeans(n_clusters=kmeans_cluster_num, random_state=0, n_init="auto").fit(pairwise_gdtscore_graph_np)
-        model_to_cluster = {pairwise_gdtscore_graph.columns[i]: kmeans.labels_[i] for i in range(len(pairwise_gdtscore_graph.columns))}
-
-        for i in range(sample_number_per_target):
-            subgraph_indices = []
-            for j in range(kmeans_cluster_num):
-                cluster_indices = list(np.where(kmeans.labels_ == j)[0])
-                if len(cluster_indices) >= sample_number_in_cluster:
-                    sampled_indices = random.sample(cluster_indices, k=sample_number_in_cluster) 
-                else:
-                    sampled_indices = cluster_indices
-
-                subgraph_indices += sampled_indices
-
-            # subgraph_indices = sorted(subgraph_indices)
-            
-            subgraph_indices = list(subgraph_indices)
-
-            random.shuffle(subgraph_indices)
-
-            selected_columns = [pairwise_gdtscore_graph.columns[i] for i in subgraph_indices]
-            
-            subgraph_df = pairwise_gdtscore_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_gdtscore_{i}.csv")
-
-            subgraph_df = pairwise_tmscore_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_tmscore_{i}.csv")
-
-            subgraph_df = pairwise_cad_score_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_cad_score_{i}.csv")
-
-            subgraph_df = pairwise_lddt_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_lddt_{i}.csv")
-    
-    else:
-        sample_number_in_cluster = 30
-        for i in range(sample_number_per_target):
-            subgraph_indices = []
-            if len(pairwise_gdtscore_graph.columns) >= sample_number_in_cluster:
-                subgraph_indices = random.sample(range(len(pairwise_gdtscore_graph.columns)), k=sample_number_in_cluster) 
-            else:
-                subgraph_indices = range(len(pairwise_gdtscore_graph.columns))
-
-            # subgraph_indices = sorted(subgraph_indices)
-
-            subgraph_indices = list(subgraph_indices)
-
-            random.shuffle(subgraph_indices)
-
-            selected_columns = [pairwise_gdtscore_graph.columns[i] for i in subgraph_indices]
-            
-            subgraph_df = pairwise_gdtscore_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_gdtscore_{i}.csv")
-
-            subgraph_df = pairwise_tmscore_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_tmscore_{i}.csv")
-
-            subgraph_df = pairwise_cad_score_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_cad_score_{i}.csv")
-
-            subgraph_df = pairwise_lddt_graph[selected_columns].loc[subgraph_indices]
-
-            subgraph_df.to_csv(f"{outdir}/subgraph_lddt_{i}.csv")
-
-        model_to_cluster = {pairwise_gdtscore_graph.columns[i]: "0" for i in range(len(pairwise_gdtscore_graph.columns))}
-
-    return model_to_cluster
+sample_models_by_kmeans(pairwise_usalign_file='/bmlfast/bml_casp16/tools/gate/examples/H1141_out/feature/usalign_pairwise/pairwise_usalign.csv', 
+                        pairwise_mmalign_file='/bmlfast/bml_casp16/tools/gate/examples/H1141_out/feature/mmalign_pairwise/pairwise_mmalign.csv',
+                        pairwise_qsscore_file='/bmlfast/bml_casp16/tools/gate/examples/H1141_out/feature/qsscore_pairwise/qsscore.csv',
+                        pairwise_dockq_wave_file='/bmlfast/bml_casp16/tools/gate/examples/H1141_out/feature/interface_pairwise/dockq_wave.csv',
+                        pairwise_dockq_ave_file='/bmlfast/bml_casp16/tools/gate/examples/H1141_out/feature/interface_pairwise/dockq_ave.csv',
+                        pairwise_cad_score_file='/bmlfast/bml_casp16/tools/gate/examples/H1141_out/feature/interface_pairwise/cad_score.csv',
+                        sample_number_per_target=3000, 
+                        outdir='test')

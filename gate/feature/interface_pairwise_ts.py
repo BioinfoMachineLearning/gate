@@ -21,7 +21,7 @@ def _parse_args():
     parser = argparse.ArgumentParser(description = desc)
     parser.add_argument("--indir", required=True)
     parser.add_argument("--outdir", required=True)
-    parser.add_argument("--procnum", default=40, required=False)
+    parser.add_argument("--procnum", default=120, required=False)
     return parser.parse_args() 
 
 def _crash_out(error, out_path):
@@ -147,11 +147,16 @@ def main():
             if not os.path.exists(jsonfile):
                 raise Exception(f"cannot find {jsonfile}")
             
-            with open(jsonfile) as f:
-                data = json.load(f)
-                scores_dict['lddt'][f"{pdb1}_{pdb2}"] = data["lddt"]
-                scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
-                
+            try:
+                with open(jsonfile) as f:
+                    # print(jsonfile)
+                    data = json.load(f)
+                    scores_dict['lddt'][f"{pdb1}_{pdb2}"] = data["lddt"]
+                    scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
+            except Exception as e:
+                print(jsonfile)
+                # print(e)
+ 
     lddt_dict, cad_score_dict = {}, {}
     for i in range(len(pdbs)):
         pdb1 = pdbs[i]

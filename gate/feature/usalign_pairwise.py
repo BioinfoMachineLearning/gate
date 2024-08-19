@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--usalign_program', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--process_num', type=int, default=40)
+    parser.add_argument('--process_num', type=int, default=180)
 
     args = parser.parse_args()
 

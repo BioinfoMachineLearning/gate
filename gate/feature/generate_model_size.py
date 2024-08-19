@@ -212,32 +212,7 @@ def find_interaction_pairs_from_model(inparams):
     return inpdb, model_contact_pairs
 
 
-def get_icps_score(cdpred_cmap_file, model_cmap_file):
-    cdpred_cmap = np.loadtxt(cdpred_cmap_file)
-    model_cmap = np.loadtxt(model_cmap_file)
-    prob_map = np.multiply(cdpred_cmap, model_cmap)
-    indices = np.argwhere(prob_map > 0)
-    if len(indices) > 0:
-        prob_score = np.mean(np.array([prob_map[row_index, col_index] for row_index, col_index in indices]))
-        return prob_score
-    return 0.0
-
-def get_recall_score(cdpred_cmap_file, model_cmap_file, prob_threshold=0.2):
-    cdpred_cmap = np.loadtxt(cdpred_cmap_file)
-    model_cmap = np.loadtxt(model_cmap_file)
-    
-    cdpred_cmap[cdpred_cmap < prob_threshold] = 0
-    cdpred_cmap[cdpred_cmap >= prob_threshold] = 1
-
-    prob_map = np.multiply(cdpred_cmap, model_cmap)
-    
-    return (prob_map > 0).sum() / (cdpred_cmap.shape[0] * cdpred_cmap.shape[1])
-
-
-def generate_icps_scores(fasta_path, outdir, pairwise_score_csv, input_model_dir,
-                         clustalw_program, cdpred_env_path, cdpred_program_path,
-                         hhblits_binary_path, hhblits_databases, 
-                         jackhmmer_binary, jackhmmer_database):
+def generate_icps_scores(fasta_path, outdir, input_model_dir, clustalw_program):
 
     # read sequences from fasta file
     sequences, descriptions = parse_fasta(open(fasta_path).read())
@@ -312,149 +287,6 @@ def generate_icps_scores(fasta_path, outdir, pairwise_score_csv, input_model_dir
     fw1.close()
     fw2.close()
 
-    workdir = os.path.join(outdir, 'cdpred')
-    os.makedirs(workdir, exist_ok=True)
-
-    print("Start to generate monomer alignments...")
-
-    msa_process_list = []
-    for sequence in unique_sequences:
-        if sequence_id_map[sequence]['chain_id'] not in chain_ids_to_process:
-            continue
-
-        msadir = f"{workdir}/{sequence_id_map[sequence]['chain_id']}"
-        os.makedirs(msadir, exist_ok=True)
-
-        monomer_fasta = msadir + '/' + sequence_id_map[sequence]['chain_id'] + '.fasta'
-        with open(monomer_fasta, 'w') as fw:
-            fw.write(f">{sequence_id_map[sequence]['chain_id']}\n")
-            fw.write(f"{sequence}\n")
-
-        a3mfile = monomer_fasta.replace('.fasta', '.a3m')
-        if not os.path.exists(a3mfile) or len(open(a3mfile).readlines()) == 0:
-            hhblits_runner = HHBlits(binary_path=hhblits_binary_path, databases=[hhblits_databases])
-            msa_process_list.append([hhblits_runner, monomer_fasta, a3mfile])
-           
-        stofile = monomer_fasta.replace('.fasta', '.sto')
-        if not os.path.exists(stofile) or len(open(stofile).readlines()) == 0:
-            jackhmmer_runner = Jackhmmer(binary_path=jackhmmer_binary, database_path=jackhmmer_database)
-            msa_process_list.append([jackhmmer_runner, monomer_fasta, stofile])
-
-    pool = Pool(processes=15)
-    results = pool.map(run_msa_tool, msa_process_list)
-    pool.close()
-    pool.join()
-
-    # find the model with the highest pairwise score - average similarity scores by column
-    print("Searching the suitable model based on pairwise scores...")
-    reference_model_dir = workdir + '/refer_model'
-    os.makedirs(reference_model_dir, exist_ok=True)
-
-    pairwise_df = pd.read_csv(pairwise_score_csv, index_col=[0])
-    models = pairwise_df.columns
-    tmscores = np.array([np.mean(np.array(pairwise_df[model])) for model in models])
-    # pairwise_df = pd.read_csv(pairwise_score_csv)
-    # models = pairwise_df['model']
-    # tmscores = pairwise_df['MMalign score']
-
-    chain_pdbs = {}
-    while True:
-        select_model_idx = np.argmax(tmscores)
-        selected_model = models[select_model_idx]
-        print(f"Checking {selected_model}")
-
-        os.system(f"rm {reference_model_dir}/*")
-        os.system(f"cp {model_dir}/{selected_model}/monomer_pdbs/* {reference_model_dir}")
-
-        chain_models = os.listdir(reference_model_dir)
-        # need to pair the chain pdb and sequence
-        for sequence in unique_sequences:
-            for chain_model in chain_models:
-                if chain_model.find('.pdb.reindex.aligned') < 0:
-                    continue
-                pdb_sequence = get_sequence(os.path.join(reference_model_dir, chain_model))
-                if pdb_sequence['sequence'] == sequence:
-                    chain_pdbs[sequence_id_map[sequence]['chain_id']] = os.path.join(reference_model_dir, chain_model)
-                    break
-
-        if len(chain_pdbs) == len(unique_sequences):
-            os.system(f"touch {os.path.join(reference_model_dir, selected_model)}")
-            print(f"Sucess!")
-            break
-        else:
-            print(f"Cannot map the sequences: {len(chain_pdbs)} and {len(unique_sequences)}!")
-            chain_pdbs = {}
-            tmscores[select_model_idx] = 0.0
-    
-    # run cdpred on the valid dimer list
-    print("Start to run CDPred...")
-    run_cdpred_list = []
-    for pair in valid_contact_pairs:
-        print(pair)
-        chain_id1, chain_id2 = pair[0], pair[1]
-        cdpred_dir = f"{workdir}/{chain_id1}_{chain_id2}"
-        os.makedirs(cdpred_dir, exist_ok=True)
-        
-        fullname = '_'.join([chain for chain in pair])
-        cdpred_cmap_file = os.path.join(outdir, 'cdpred', '_'.join(list(pair)), 'predmap', f"{fullname}.htxt")
-        if os.path.exists(cdpred_cmap_file):
-            continue
-        
-        msadir = os.path.join(outdir, 'cdpred')
-        if chain_id1 == chain_id2:
-            a3m = os.path.join(msadir, chain_id1, f"{chain_id1}.a3m")
-            run_cdpred_list.append([cdpred_env_path, cdpred_program_path, chain_id1, chain_id2, [chain_pdbs[chain_id1]], a3m, cdpred_dir])
-        else:
-            sto1 = os.path.join(msadir, chain_id1, f"{chain_id1}.sto")
-            sto2 = os.path.join(msadir, chain_id2, f"{chain_id2}.sto")
-
-            paired_a3m = pair_a3m(sto1, sto2, cdpred_dir)
-            run_cdpred_list.append([cdpred_env_path, cdpred_program_path, chain_id1, chain_id2, [chain_pdbs[chain_id1], chain_pdbs[chain_id2]], paired_a3m, cdpred_dir])
-                
-    pool = Pool(processes=10)
-    results = pool.map(run_cdpred_on_dimers, run_cdpred_list)
-    pool.close()
-    pool.join()
-
-    # start to calculate icps score
-    print("Start to calculate icps and recall score...")
-    data_dict = {'model': [], 'icps': [], 'recall': []}
-    for model in sorted(os.listdir(input_model_dir)):
-        chain_dir = os.path.join(model_dir, model, 'monomer_pdbs' )
-        icps_model_scores = []
-        recall_model_scores = []
-        for pair in valid_contact_pairs:
-            cmap_files = read_files_by_prefix_and_ext(chain_dir, pair, 'cmap')
-            # print(cmap_files)
-            if len(cmap_files) == 0:
-                continue
-            
-            fullname = '_'.join([chain for chain in pair])
-            cdpred_cmap_file = os.path.join(outdir, 'cdpred', '_'.join(list(pair)), 'predmap', f"{fullname}.htxt")
-            icps_model_pair_scores = []
-            recall_model_pair_scores = []
-
-            cal_list = [[cdpred_cmap_file, cmap_file] for cmap_file in cmap_files]
-            # print(cal_list)
-            pool = Pool(processes=150)
-            results = pool.map(icps_recall_wrappeer, cal_list)
-            pool.close()
-            pool.join()
-
-            for score1, score2 in results:
-                icps_model_pair_scores += [score1]
-                recall_model_pair_scores += [score2]
-
-            icps_model_scores += [np.max(np.array(icps_model_pair_scores))]
-            recall_model_scores += [np.max(np.array(recall_model_pair_scores))]
-        
-        data_dict['model'] += [model]
-        # print(icps_model_scores)
-        data_dict['icps'] += [np.sum(np.array(icps_model_scores)) / len(valid_contact_pairs)]
-        data_dict['recall'] += [np.sum(np.array(recall_model_scores)) / len(valid_contact_pairs)]
-    
-    pd.DataFrame(data_dict).to_csv(os.path.join(outdir, 'icps.csv'))
-
 def icps_recall_wrappeer(inparams):
     cdpred_cmap_file, cmap_file = inparams
     return get_icps_score(cdpred_cmap_file, cmap_file), get_recall_score(cdpred_cmap_file, cmap_file)
@@ -504,28 +336,14 @@ if __name__ == '__main__':
     parser.add_argument('--fasta_path', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--model_dir', type=str, required=True)
-    parser.add_argument('--pairwise_score_csv', type=str, required=True)
-    parser.add_argument('--hhblits_databases', type=str, required=True)
-    parser.add_argument('--jackhmmer_database', type=str, required=True)
-    parser.add_argument('--hhblits_binary_path', type=str, required=True)
-    parser.add_argument('--jackhmmer_binary', type=str, required=True)
     parser.add_argument('--clustalw_program', type=str, required=True)
-    parser.add_argument('--cdpred_env_path', type=str, required=True)
-    parser.add_argument('--cdpred_program_path', type=str, required=True)
 
     args = parser.parse_args()
 
     generate_icps_scores(fasta_path=args.fasta_path, 
                          outdir=args.outdir, 
-                         pairwise_score_csv=args.pairwise_score_csv, 
                          input_model_dir=args.model_dir,
-                         clustalw_program=args.clustalw_program, 
-                         cdpred_env_path=args.cdpred_env_path,
-                         cdpred_program_path=args.cdpred_program_path,
-                         hhblits_binary_path=args.hhblits_binary_path, 
-                         hhblits_databases=args.hhblits_databases, 
-                         jackhmmer_binary=args.jackhmmer_binary, 
-                         jackhmmer_database=args.jackhmmer_database)
+                         clustalw_program=args.clustalw_program)
 
     outfile = os.path.join(args.outdir, 'model_size.csv')
     generate_interface_model_size(fasta_path=args.fasta_path,

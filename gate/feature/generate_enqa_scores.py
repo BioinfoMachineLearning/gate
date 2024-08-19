@@ -39,7 +39,7 @@ def generate_enqa_scores(enqa_env_path:str,
         model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
         target_dict['score_norm'] = []
 
-    max_length_threshold = 2500
+    max_length_threshold = 2600
     # read sequences from fasta file
     sequences, descriptions = parse_fasta(open(fasta_path).read())
     target_length = np.sum(np.array([len(sequence) for sequence in sequences]))

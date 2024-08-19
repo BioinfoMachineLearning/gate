@@ -34,7 +34,7 @@ def generate_gcpnet_scores(gcpnet_ema_env_path: str,
                 f"data.ablate_esm_embeddings=false " \
                 f"model.ablate_af2_plddt=false " \
                 f"data.predict_output_dir={outdir}/workdir"
-    
+    print(cmd)    
     resultfile = f"{outdir}/result.csv"
 
     if not os.path.exists(resultfile):
@@ -52,7 +52,7 @@ def generate_gcpnet_scores(gcpnet_ema_env_path: str,
     model_size_ratio = {}
     if model_csv is not None and os.path.exists(model_csv):                
         model_info_df = pd.read_csv(model_csv)
-        model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
+        model_size_ratio = dict(zip([str(modelname) for modelname in list(model_info_df['model'])], list(model_info_df['model_size_norm'])))
         data_dict['score_norm'] = []
 
     pred_model_out_dir = os.path.join(outdir, 'pred_pdbs')
@@ -66,7 +66,7 @@ def generate_gcpnet_scores(gcpnet_ema_env_path: str,
         data_dict['score'] += [global_score / 100]
         
         if 'score_norm' in data_dict:
-            data_dict['score_norm'] += [global_score / 100 * float(model_size_ratio[modelname])]
+            data_dict['score_norm'] += [global_score / 100 * float(model_size_ratio[str(modelname)])]
 
         os.system(f"cp {pred_model} {pred_model_out_dir}/{modelname}")
 

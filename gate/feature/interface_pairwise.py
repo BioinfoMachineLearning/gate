@@ -21,7 +21,7 @@ def _parse_args():
     parser = argparse.ArgumentParser(description = desc)
     parser.add_argument("--indir", required=True)
     parser.add_argument("--outdir", required=True)
-    parser.add_argument("--procnum", default=80, required=False)
+    parser.add_argument("--procnum", default=150, required=False)
     return parser.parse_args() 
 
 def _crash_out(error, out_path):
@@ -69,6 +69,9 @@ def _cal_interface_score(inparams):
     modeldir, pdb1, pdb2, outdir = inparams
     out_file = os.path.join(outdir, f"{pdb1}_{pdb2}.json")
 
+    if os.path.exists(out_file):
+        return out_file
+        
     try:
         mdl = io.LoadPDB(os.path.join(modeldir, pdb1))
         trg = io.LoadPDB(os.path.join(modeldir, pdb2))
@@ -156,11 +159,16 @@ def main():
             if not os.path.exists(jsonfile):
                 raise Exception(f"cannot find {jsonfile}")
             
-            with open(jsonfile) as f:
-                data = json.load(f)
-                scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"] = data["dockq_wave_full"]
-                scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"] = data["dockq_ave_full"]
-                scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
+            try:
+                with open(jsonfile) as f:
+                    # print(jsonfile)
+                    data = json.loads(f.read())
+                    scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"] = data["dockq_wave_full"]
+                    scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"] = data["dockq_ave_full"]
+                    scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
+            except Exception as e:
+                print(jsonfile)
+                print(e)
 
     dockq_wave_dict, dockq_ave_dict, cad_score_dict = {}, {}, {}
     for i in range(len(pdbs)):
