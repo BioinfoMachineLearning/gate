@@ -38,7 +38,7 @@ CONFIG = ml_collections.ConfigDict({
         'cdpred': os.path.join(ROOTDIR, 'mambaforge', 'envs', 'cdpred'),
         'openstructure': 'registry.scicore.unibas.ch/schwede/openstructure:latest',
         'use_docker': True,
-        'openstructure_sif': 'registry.scicore.unibas.ch/schwede/openstructure:latest',
+        'openstructure_sif': os.path.join(ROOTDIR, 'tools', 'openstructure_latest.sif'),
     },
     'tools': {
         'tmscore_program': os.path.join(ROOTDIR, 'tools', 'TMscore'),
