@@ -3,103 +3,122 @@
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Installation](#installation)
+   - [Clone the Repository](#clone-the-repository)
+   - [Install Mamba](#install-mamba)
+   - [Install Tools](#install-tools)
+   - [Set Up Python Environments](#set-up-python-environments)
+   - [Download Databases](#download-databases)
 3. [Configuration](#configuration)
 4. [Usage](#usage)
-   - [Multimer Structure Estimation](#1-multimer-structure-estimation)
-   - [Monomer Structure Estimation](#2-monomer-structure-estimation)
+   - [Required Arguments](#required-arguments)
+   - [Optional Arguments](#optional-arguments)
+   - [Example Commands](#example-commands)
+5. [Contact](#contact)
+
+---
 
 ## Introduction
-GATE is a tool designed for the estimation of protein model accuracy using advanced graph transformers. This repository contains the code, models, and instructions for running the tool.
+
+GATE is a tool designed for estimating protein model accuracy using advanced graph transformers. This repository contains the code, pre-trained models, and instructions for setup and usage.
+
+---
 
 ## Installation
-To install GATE, follow these steps:
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/yourusername/GATE.git
-   cd GATE
-2. **Install Mamba:**
-    ```
-    wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
-    bash Mambaforge-$(uname)-$(uname -m).sh 
-    rm Mambaforge-$(uname)-$(uname -m).sh
-    source ~/.bashrc  
-    ```
-3. **Install tools:**
+### Clone the Repository
 
-    ```
-    cd tools
+```bash
+git clone -b public https://github.com/BioinfoMachineLearning/gate
+cd gate
+```
 
-    # Install GCPNet-EMA
-    git clone https://github.com/BioinfoMachineLearning/GCPNet-EMA
-    mkdir GCPNet-EMA/checkpoints
-    wget -P GCPNet-EMA/checkpoints/ https://zenodo.org/record/10719475/files/structure_ema_finetuned_gcpnet_i2d5t9xh_best_epoch_106.ckpt
 
-    # Install EnQA
-    git clone https://github.com/BioinfoMachineLearning/EnQA
-    chmod -R 755 EnQA/utils
+### Install Mamba
 
-    # Install DProQA
-    git clone https://github.com/jianlin-cheng/DProQA
+```
+wget "https://github.com/conda-forge/miniforge/releases/download/23.1.0-3/Mambaforge-$(uname)-$(uname -m).sh"
+bash Mambaforge-$(uname)-$(uname -m).sh 
+rm Mambaforge-$(uname)-$(uname -m).sh
+source ~/.bashrc  
+```
 
-    # Install Venclovas QAs
-    git clone https://github.com/kliment-olechnovic/ftdmp
+### Install tools
 
-    # Install CDPred
-    git clone https://github.com/BioinfoMachineLearning/CDPred
+```
+cd tools
 
-    # Install openstructure
-    docker pull registry.scicore.unibas.ch/schwede/openstructure:latest
-    # or
-    singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:latest
-    ```
-4. **Install additional tools for estimating protein monomer structures (optional)**
+# Install GCPNet-EMA
+git clone https://github.com/BioinfoMachineLearning/GCPNet-EMA
+mkdir GCPNet-EMA/checkpoints
+wget -P GCPNet-EMA/checkpoints/ https://zenodo.org/record/10719475/files/structure_ema_finetuned_gcpnet_i2d5t9xh_best_epoch_106.ckpt
 
-    Follow the instructions in https://github.com/jianlin-cheng/DeepRank3
-    
-5. **Install python environments**
+# Install EnQA
+git clone https://github.com/BioinfoMachineLearning/EnQA
+chmod -R 755 EnQA/utils
 
-    ```
-    mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
-    mamba install -c dglteam dgl-cuda11.0
-    mamba install pandas biopython
+# Install DProQA
+git clone https://github.com/jianlin-cheng/DProQA
 
-    mamba env create -f envs/gcpnet_ema.yaml
-    mamba env create -f envs/enqa.yaml
-    mamba env create -f envs/dproqa.yaml
+# Install Venclovas QAs
+git clone https://github.com/kliment-olechnovic/ftdmp
 
-    # mamba env create -f envs/ftdmp.yaml
-    # install ftdmp (https://github.com/kliment-olechnovic/ftdmp/issues/4)
-    mamba install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 cpuonly -c pytorch
-    mamba install pyg pytorch-cluster pytorch-scatter pytorch-sparse pytorch-spline-conv -c pyg
-    mamba install -c conda-forge pandas
-    mamba install -c conda-forge r-base
+# Install CDPred
+git clone https://github.com/BioinfoMachineLearning/CDPred
 
-    # install CDPred
-    # mamba create -n cdpred python=3.6
-    # pip install -r tools/CDPred/requirments.txt
-    # mamba install -y -c bioconda hmmer hhsuite==3.3.0 
-    mamba env create -f envs/cdpred.yaml
+# Install openstructure
+docker pull registry.scicore.unibas.ch/schwede/openstructure:latest
+# or
+singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:latest
+```
 
-    ```
+### Set Up Python Environments
 
-6. **Download databases (~2.5T)**
+``` 
+# Install python enviorment for gate
+mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
+mamba install -c dglteam dgl-cuda11.0
+mamba install pandas biopython
 
-    ```
-    mkdir databases
-    sh scripts/download_bfd.sh databases/
-    sh scripts/download_uniref90.sh databases/
-    ```
+# Install python enviorment for GCPNet-EMA
+mamba env create -f tools/GCPNet-EMA/environment.yaml
+mamba activate GCPNet-EMA
+pip3 install -e tools/GCPNet-EMA
+pip3 install prody==2.4.1
+pip3 uninstall protobuf
+mamba deactivate
 
-## **Configuration**
+# Install python enviorment for EnQA
+mamba env create -f envs/enqa.yaml
+
+# Install python enviorment for DProQA
+mamba env create -f envs/dproqa.yaml
+
+# Install python enviorment for VoroMQA
+mamba env create -f envs/ftdmp.yaml
+
+# Install python enviorment for CDPred
+mamba env create -f envs/cdpred.yaml
+
+```
+
+### Download databases (~2.5T)
+
+```
+mkdir databases
+
+# Create virtual links if the databases are stored elsewhere
+sh scripts/download_bfd.sh databases/
+sh scripts/download_uniref90.sh databases/
+```
+
+### **Configuration**
     
     * Replace the contents for the ROOTDIR in gate/feature/config.py with your installation path
 
-    * Change use_docker to False if using Singularity
+    * Set use_docker to False if using Singularity instead of Docker.
 
 ## Usage
 
-### **1. Multimer Structure Estimation**
 To run the GATE tool for estimating protein multimer structure accuracy, use the `inference_multimer.py` script with the following arguments:
 
 #### Required Arguments:
@@ -127,7 +146,7 @@ To run the GATE tool for estimating protein multimer structure accuracy, use the
 * --sample_times SAMPLE_TIMES
     Number of times to sample the models. Default is 5.
 
-#### Example Command:
+#### Example Commands:
 
 Here are examples of how to use the `inference_multimer.py` script with different settings:
 
@@ -140,38 +159,3 @@ Here are examples of how to use the `inference_multimer.py` script with differen
     ```bash
     python inference_multimer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR --pkldir $PKLDIR --use_af_feature True
     ```
-
-### **2. Monomer Structure Estimation**
-To run the GATE tool for estimating protein multimer structure accuracy, use the `inference_monomer.py` script with the following arguments:
-
-#### Required Arguments:
-* --fasta_path FASTA_PATH
-
-    The path to the input FASTA file containing the protein sequences.
-
-* --input_model_dir INPUT_MODEL_DIR
-    
-    The directory containing the input protein models.
-
-* --output_dir OUTPUT_DIR
-    
-    The directory where the output results will be saved.
-
-#### Optional Arguments: 
-
-* --contact_map_file CONTACT_MAP_FILE
-    
-    The path to the contact map file.
-
-* --dist_map_file DIST_MAP_FILE
-    
-    The path to the distance map file.
-
-* --sample_times SAMPLE_TIMES
-    Number of times to sample the models. Default is 5.
-
-#### Example Command:
-
-```bash
-python inference_monomer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR
-```

@@ -2,7 +2,7 @@
 import ml_collections
 import os
 
-ROOTDIR = "/bmlfast/bml_casp16/tools/gate/"
+ROOTDIR = $ROOTDIR
 CKPTDIR = os.path.join(ROOTDIR, 'checkpoints')
 
 CONFIG = ml_collections.ConfigDict({
@@ -12,10 +12,6 @@ CONFIG = ml_collections.ConfigDict({
         'usalign_pairwise_script': os.path.join(ROOTDIR, 'gate', 'feature', 'usalign_pairwise.py'),
         'interface_pairwise_script': os.path.join(ROOTDIR, 'gate', 'feature', 'interface_pairwise.py'),
         'qsscore_pairwise_script': os.path.join(ROOTDIR, 'gate', 'feature', 'qsscores_with_mmalign_mappings.py'),
-
-        'tmscore_pairwise_script': os.path.join(ROOTDIR, 'gate', 'feature', 'tmscore_pairwise.py'),
-        'interface_pairwise_ts_script': os.path.join(ROOTDIR, 'gate', 'feature', 'interface_pairwise_ts.py'),
-        
         'icps_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_icps_scores.py'),
         'model_size_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_model_size.py'),
         'plddt_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_plddt_scores.py'),
@@ -25,10 +21,6 @@ CONFIG = ml_collections.ConfigDict({
         'voro_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_voro_scores.py'),
         'edge_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_common_interface_edge.py'),
         'alphafold_feature_script': os.path.join(ROOTDIR, 'gate', 'feature', 'generate_af_features.py'),
-
-        'deeprank3_cluster_script': '/bmlfast/bml_casp15/tools/casp14/casp14_qa/bin/DeepRank3_Cluster.sh',
-        'deeprank3_singleqa_script': '/bmlfast/bml_casp15/tools/casp14/casp14_qa/bin/DeepRank3_SingleQA.sh',
-        'deeprank3_singleqa_lite_script': '/bmlfast/bml_casp15/tools/casp14/casp14_qa/bin/DeepRank3_SingleQA_lite.sh',
     },
     'envs': {
         'enqa': os.path.join(ROOTDIR, 'mambaforge', 'envs', 'enqa'),
@@ -1788,198 +1780,6 @@ GATE_MODELS = ml_collections.ConfigDict({
             'ensemble_mode': 'mean',
         },
     },
-    'casp15_inhouse_ts': {
-        'fold0': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 4,
-            'num_layer': 2,
-            'dp_rate': 0.5,
-            'layer_norm': False,
-            'batch_norm': True,
-            'residual': True,
-            'hidden_dim': 32,
-            'mlp_dp_rate': 0.4,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.8,
-            'opt': 'AdamW',
-            'lr': 1e-05,
-            'weight_decay': 0.05,
-            'batch_size': 256,
-            'ensemble_mode': 'median',
-        },
-        'fold1': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 4,
-            'num_layer': 2,
-            'dp_rate': 0.5,
-            'layer_norm': False,
-            'batch_norm': True,
-            'residual': True,
-            'hidden_dim': 32,
-            'mlp_dp_rate': 0.3,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.2,
-            'opt': 'AdamW',
-            'lr': 1e-05,
-            'weight_decay': 0.01,
-            'batch_size': 512,
-            'ensemble_mode': 'median',
-        },
-        'fold2': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 4,
-            'num_layer': 4,
-            'dp_rate': 0.5,
-            'layer_norm': True,
-            'batch_norm': False,
-            'residual': True,
-            'hidden_dim': 64,
-            'mlp_dp_rate': 0.3,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.7,
-            'opt': 'AdamW',
-            'lr': 1e-05,
-            'weight_decay': 0.01,
-            'batch_size': 256,
-            'ensemble_mode': 'mean',
-        },
-        'fold3': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 8,
-            'num_layer': 2,
-            'dp_rate': 0.3,
-            'layer_norm': True,
-            'batch_norm': False,
-            'residual': True,
-            'hidden_dim': 32,
-            'mlp_dp_rate': 0.5,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.2,
-            'opt': 'AdamW',
-            'lr': 0.001,
-            'weight_decay': 0.01,
-            'batch_size': 512,
-            'ensemble_mode': 'median',
-        },
-        'fold4': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 4,
-            'num_layer': 2,
-            'dp_rate': 0.5,
-            'layer_norm': True,
-            'batch_norm': False,
-            'residual': True,
-            'hidden_dim': 32,
-            'mlp_dp_rate': 0.5,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.05,
-            'opt': 'AdamW',
-            'lr': 1e-05,
-            'weight_decay': 0.01,
-            'batch_size': 256,
-            'ensemble_mode': 'mean',
-        },
-        'fold5': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 4,
-            'num_layer': 4,
-            'dp_rate': 0.4,
-            'layer_norm': True,
-            'batch_norm': False,
-            'residual': True,
-            'hidden_dim': 64,
-            'mlp_dp_rate': 0.3,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.9,
-            'opt': 'AdamW',
-            'lr': 1e-05,
-            'weight_decay': 0.01,
-            'batch_size': 256,
-            'ensemble_mode': 'mean',
-        },
-        'fold6': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 8,
-            'num_layer': 5,
-            'dp_rate': 0.4,
-            'layer_norm': False,
-            'batch_norm': True,
-            'residual': True,
-            'hidden_dim': 32,
-            'mlp_dp_rate': 0.2,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.2,
-            'opt': 'AdamW',
-            'lr': 1e-05,
-            'weight_decay': 0.01,
-            'batch_size': 256,
-            'ensemble_mode': 'median',
-        },
-        'fold7': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 4,
-            'num_layer': 5,
-            'dp_rate': 0.4,
-            'layer_norm': False,
-            'batch_norm': True,
-            'residual': True,
-            'hidden_dim': 32,
-            'mlp_dp_rate': 0.2,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.2,
-            'opt': 'AdamW',
-            'lr': 5e-05,
-            'weight_decay': 0.05,
-            'batch_size': 512,
-            'ensemble_mode': 'mean',
-        },
-        'fold8': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 4,
-            'num_layer': 4,
-            'dp_rate': 0.5,
-            'layer_norm': True,
-            'batch_norm': False,
-            'residual': True,
-            'hidden_dim': 32,
-            'mlp_dp_rate': 0.5,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.05,
-            'opt': 'AdamW',
-            'lr': 0.0005,
-            'weight_decay': 0.01,
-            'batch_size': 256,
-            'ensemble_mode': 'mean',
-        },
-        'fold9': {
-            'node_input_dim': 42,
-            'edge_input_dim': 4,
-            'num_heads': 8,
-            'num_layer': 5,
-            'dp_rate': 0.3,
-            'layer_norm': True,
-            'batch_norm': False,
-            'residual': True,
-            'hidden_dim': 16,
-            'mlp_dp_rate': 0.3,
-            'loss_fun': 'mse',
-            'pairwise_loss_weight': 0.3,
-            'opt': 'AdamW',
-            'lr': 0.0005,
-            'weight_decay': 0.05,
-            'batch_size': 400,
-            'ensemble_mode': 'mean',
-        },
-    },
 })
 
 
@@ -1999,18 +1799,3 @@ class features_multimer_dict:
         self.gcpnet_ema = ""
         self.voro = ""
         self.common_interface = ""
-
-class features_monomer_dict:
-    def __init__(self):
-        self.pairwise_gdtscore = ""
-        self.pairwise_tmscore = ""
-        self.pairwise_cad_score = ""
-        self.pairwise_lddt = ""
-        self.plddt = ""
-        self.enqa = ""
-        self.gcpnet_ema = ""
-        self.deeprank3_cluster = ""
-        self.deeprank3_singleqa = ""
-        self.deeprank3_singleqa_lite = ""
-        self.deeprank3_features = ""
-       

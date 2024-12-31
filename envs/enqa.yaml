@@ -46,4 +46,3 @@ dependencies:
       - scipy==1.7.1
       - six==1.16.0
       - typing-extensions==4.6.2
-prefix: /bmlfast/bml_casp16/tools/gate/mambaforge/envs/enqa
