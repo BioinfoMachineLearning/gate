@@ -7,13 +7,12 @@ from gate.tool.utils import *
 import re, subprocess
 from gate.tool.alignment import parse_fasta
 
-GCPNET_EMA_program_dir = '/home/jl4mc/gate/tools/GCPNet-EMA'
-GCPNET_EMA_program = '/home/jl4mc/gate/tools/GCPNet-EMA/src/predict.py'
+GCPNET_EMA_program = 'src/predict.py'
 
-def generate_gcpnet_scores(indir: str, 
+def generate_gcpnet_scores(gcpnet_ema_env_path: str,
+                           gcpnet_ema_program_path: str,
+                           indir: str, 
                            outdir: str, 
-                           fasta_path: str, 
-                           targetname: str, 
                            model_csv: str):
     
     modeldir = outdir + '/models'
@@ -22,115 +21,81 @@ def generate_gcpnet_scores(indir: str,
     for pdb in sorted(os.listdir(indir)):
         os.system(f"cp {indir}/{pdb} {modeldir}/{pdb}.pdb")
 
-    base_cmd = f"python {GCPNET_EMA_program} " \
+    os.chdir(gcpnet_ema_program_path)
+    cmd = f"{gcpnet_ema_env_path}/bin/python {GCPNET_EMA_program} " \
                 f"model=gcpnet_ema data=ema data.predict_batch_size=1 data.num_workers=16 " \
                 f"data.python_exec_path=/home/jl4mc/mambaforge/envs/gcpnet/bin/python " \
                 f"data.lddt_exec_path=/home/jl4mc/mambaforge/envs/gcpnet/bin/lddt " \
                 f"data.pdbtools_dir=/home/jl4mc/mambaforge/envs/gcpnet/lib/python3.10/site-packages/pdbtools/ " \
                 f"logger=csv trainer.accelerator=gpu trainer.devices=[0] " \
                 f"data.predict_input_dir={modeldir} " \
-                f"data.ablate_ankh_embeddings=true model.ablate_gtn=true "
-    
-    config_list = {'no_esm': {
-                                'ckpt_path': GCPNET_EMA_program_dir + '/ckpts/structure_ema_finetuned_gcpnet_without_esm_emb_x8tjgsf4_best_epoch_027.ckpt',
-                                'ablate_esm_embeddings': 'true',
-                                'ablate_af2_plddt': 'false'
-                                },
-                    'no_plddt': {
-                                'ckpt_path': GCPNET_EMA_program_dir + '/ckpts/structure_ema_finetuned_gcpnet_without_plddt_ije6iplr_best_epoch_055.ckpt',
-                                'ablate_esm_embeddings': 'false',
-                                'ablate_af2_plddt': 'true'
-                                },
-                    'esm_plddt': {
-                                'ckpt_path': GCPNET_EMA_program_dir + '/ckpts/structure_ema_finetuned_gcpnet_i2d5t9xh_best_epoch_106.ckpt',
-                                'ablate_esm_embeddings': 'false',
-                                'ablate_af2_plddt': 'false'
-                                },
-                    }
-    
-    for config_name in config_list:
+                f"data.ablate_ankh_embeddings=true model.ablate_gtn=true " \
+                f"ckpt_path=checkpoints/structure_ema_finetuned_gcpnet_i2d5t9xh_best_epoch_106.ckpt " \
+                f"data.ablate_esm_embeddings=false " \
+                f"model.ablate_af2_plddt=false " \
+                f"data.predict_output_dir={outdir}/workdir"
+    print(cmd)    
+    resultfile = f"{outdir}/result.csv"
 
-        resultfile = f"{outdir}/{config_name}.csv"
+    if not os.path.exists(resultfile):
+        pattern = r"(/[^/\s]+)+\.csv"
+        logfile = os.path.join(outdir, 'run.log')
+        os.system(f"{cmd} &> {logfile}")
+        for line in open(logfile):
+            if line.find("Predictions saved to:") >= 0:
+                result_csv = line.split('Predictions saved to:')[1]
+                match = re.search(pattern, result_csv)
+                os.system(f"cp {match.group(0)} {resultfile}")
+        
 
-        if not os.path.exists(resultfile):
-            
-            os.system("rm /tmp/predicted_*.pdb")
-            
-            config_out_dir = outdir + '/' + config_name
-            os.makedirs(config_out_dir, exist_ok=True)
-            
-            config = config_list[config_name]
-            ckpt_path = config['ckpt_path']
-            ablate_esm_embeddings = config['ablate_esm_embeddings']
-            ablate_af2_plddt = config['ablate_af2_plddt']
+    data_dict = {'model': [], 'score': []}
+    model_size_ratio = {}
+    if model_csv is not None and os.path.exists(model_csv):                
+        model_info_df = pd.read_csv(model_csv)
+        model_size_ratio = dict(zip([str(modelname) for modelname in list(model_info_df['model'])], list(model_info_df['model_size_norm'])))
+        data_dict['score_norm'] = []
 
-            cmd = base_cmd + f"ckpt_path={ckpt_path} " \
-                             f"data.ablate_esm_embeddings={ablate_esm_embeddings} " \
-                             f"model.ablate_af2_plddt={ablate_af2_plddt} " \
-                             f"data.predict_output_dir={config_out_dir}"
-            try:
-                os.system(cmd)
-            except Exception as e:
-                print(e)
-                return
+    pred_model_out_dir = os.path.join(outdir, 'pred_pdbs')
+    os.makedirs(pred_model_out_dir, exist_ok=True)
 
-            if not os.path.exists(config_out_dir + '/result.csv'):
-                raise Exception(f"Cannot find {config_out_dir}/result.csv!")
+    df = pd.read_csv(resultfile)
+    for model, pred_model, global_score in zip(list(df['input_annotated_pdb_filepath']), list(df['predicted_annotated_pdb_filepath']), list(df['global_score'])):
+        modelname = os.path.basename(model)
+        modelname = modelname.replace('.pdb', '')
+        data_dict['model'] += [modelname]
+        data_dict['score'] += [global_score / 100]
+        
+        if 'score_norm' in data_dict:
+            data_dict['score_norm'] += [global_score / 100 * float(model_size_ratio[str(modelname)])]
 
-            os.system(f"cp {config_out_dir}/result.csv {resultfile}")
+        os.system(f"cp {pred_model} {pred_model_out_dir}/{modelname}")
 
-        data_dict = {'model': [], 'score': []}
-        model_size_ratio = {}
-        if os.path.exists(model_csv):                
-            model_info_df = pd.read_csv(model_csv)
-            model_size_ratio = dict(zip(list(model_info_df['model']), list(model_info_df['model_size_norm'])))
-            data_dict['score_norm'] = []
-
-        pred_model_out_dir = outdir + '/' + config_name + '_pred_pdbs'
-        os.makedirs(pred_model_out_dir, exist_ok=True)
-
-        df = pd.read_csv(resultfile)
-        for model, pred_model, global_score in zip(list(df['input_annotated_pdb_filepath']), list(df['predicted_annotated_pdb_filepath']), list(df['global_score'])):
-            modelname = os.path.basename(model)
-            modelname = modelname.replace('.pdb', '')
-            data_dict['model'] += [modelname]
-            data_dict['score'] += [global_score / 100]
-            
+    for pdb in sorted(os.listdir(indir)):
+        pdbname = pdb.replace('.pdb', '')
+        if pdbname not in data_dict['model']:
+            data_dict['model'] += [pdbname]
+            data_dict['score'] += [0.0]
             if 'score_norm' in data_dict:
-                data_dict['score_norm'] += [global_score / 100 * float(model_size_ratio[modelname])]
-
-            os.system(f"cp {pred_model} {pred_model_out_dir}/{modelname}")
-
-        for pdb in sorted(os.listdir(indir)):
-            pdbname = pdb.replace('.pdb', '')
-            if pdbname not in data_dict['model']:
-                data_dict['model'] += [pdbname]
-                data_dict['score'] += [0.0]
-                if 'score_norm' in data_dict:
-                    data_dict['score_norm'] += [0.0]
-        
-        pd.DataFrame(data_dict).to_csv(f"{outdir}/{targetname}_{config_name}.csv")
-
-        
+                data_dict['score_norm'] += [0.0]
+    
+    pd.DataFrame(data_dict).to_csv(os.path.join(outdir, 'esm_plddt.csv'))
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
-    parser.add_argument('--interface_dir', type=str, required=False, default="1111")
-    parser.add_argument('--fastadir', type=str, required=True)
+    parser.add_argument('--model_size_csv', type=str, required=False)
+    parser.add_argument('--gcpnet_ema_program_path', type=str, required=True)
+    parser.add_argument('--gcpnet_ema_env_path', type=str, required=True)
 
     args = parser.parse_args()
 
-    for target in os.listdir(args.indir):
-        outdir = args.outdir + '/' + target
-        makedir_if_not_exists(outdir)
-        generate_gcpnet_scores(indir=args.indir + '/' + target,
-                                fasta_path=args.fastadir + '/' + target + '.fasta',  
-                                outdir=outdir, 
-                                targetname=target, 
-                                model_csv=args.interface_dir + '/' + target  + '.csv')
+    generate_gcpnet_scores(gcpnet_ema_env_path=args.gcpnet_ema_env_path,
+                           gcpnet_ema_program_path=args.gcpnet_ema_program_path,
+                           indir=args.indir,
+                           outdir=args.outdir, 
+                           model_csv=args.model_size_csv)
 
 
 

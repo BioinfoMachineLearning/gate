@@ -7,8 +7,7 @@ from gate.tool.protein import read_files_by_prefix_and_ext
 
 def generate_common_interface_edge(indir: str, 
                                    outdir: str, 
-                                   cdpreddir: str, 
-                                   targetname: str):
+                                   cdpreddir: str):
 
     pdbs = sorted(os.listdir(indir))
 
@@ -19,7 +18,7 @@ def generate_common_interface_edge(indir: str,
 
         pdb1 = pdbs[i]
 
-        chain_pdb_dir1 = cdpreddir + '/models/' + pdb1 + '/monomer_pdbs' 
+        chain_pdb_dir1 = os.path.join(cdpreddir, 'models', pdb1, 'monomer_pdbs')
 
         _cmap_files1 = read_files_by_prefix_and_ext(indir=chain_pdb_dir1, ext='cmap', full_path=False)
 
@@ -35,7 +34,7 @@ def generate_common_interface_edge(indir: str,
 
             else:
 
-                chain_pdb_dir2 = cdpreddir + '/models/' + pdb2 + '/monomer_pdbs' 
+                chain_pdb_dir2 = os.path.join(cdpreddir, 'models', pdb2, 'monomer_pdbs')
 
                 _cmap_files2 = read_files_by_prefix_and_ext(indir=chain_pdb_dir2, ext='cmap', full_path=False)
 
@@ -45,7 +44,7 @@ def generate_common_interface_edge(indir: str,
 
         data_dict[pdb1] = number_of_common_interfaces
 
-    pd.DataFrame(data_dict).to_csv(outdir + '/' + targetname + '.csv')
+    pd.DataFrame(data_dict).to_csv(os.path.join(outdir, 'common_interface.csv'))
 
 
 if __name__ == '__main__':
@@ -57,11 +56,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    for target in os.listdir(args.indir):
-        outdir = args.outdir + '/' + target
-        makedir_if_not_exists(outdir)
-        generate_common_interface_edge(indir=args.indir + '/' + target, 
-                                       outdir=outdir, 
-                                       cdpreddir=args.cdpreddir + '/' + target, 
-                                       targetname=target)
+    generate_common_interface_edge(indir=args.indir,
+                                   outdir=args.outdir, 
+                                   cdpreddir=args.cdpreddir)
 

@@ -21,7 +21,7 @@ def _parse_args():
     parser = argparse.ArgumentParser(description = desc)
     parser.add_argument("--indir", required=True)
     parser.add_argument("--outdir", required=True)
-    parser.add_argument("--procnum", required=True)
+    parser.add_argument("--procnum", default=150, required=False)
     return parser.parse_args() 
 
 def _crash_out(error, out_path):
@@ -67,8 +67,11 @@ def _cal_interface_score(inparams):
 
     t0 = time.time()
     modeldir, pdb1, pdb2, outdir = inparams
-    out_file = f"{outdir}/{pdb1}_{pdb2}.json"
+    out_file = os.path.join(outdir, f"{pdb1}_{pdb2}.json")
 
+    if os.path.exists(out_file):
+        return out_file
+        
     try:
         mdl = io.LoadPDB(os.path.join(modeldir, pdb1))
         trg = io.LoadPDB(os.path.join(modeldir, pdb2))
@@ -119,86 +122,86 @@ def _cal_interface_score(inparams):
     return out_file
 
 def main():
+
     args = _parse_args()
-    results = {}
-    for target in os.listdir(args.indir):
-        if target.find('.csv') > 0:
-            continue
-        print(f"Processing {target}")
-        pdbs = sorted(os.listdir(args.indir + '/' + target))
-        process_list = []
-        for i in range(len(pdbs)):
-            for j in range(len(pdbs)):
-                pdb1 = pdbs[i]
-                pdb2 = pdbs[j]
-                if pdb1 == pdb2:
-                    continue
-                outfile = f"{args.outdir}/{target}/{pdb1}_{pdb2}.json"
-                if os.path.exists(outfile):
-                    continue
-                process_list.append([args.indir + '/' + target, pdb1, pdb2, args.outdir + '/' + target])
 
-        if not os.path.exists(args.outdir + '/' + target):
-            os.makedirs(args.outdir + '/' + target)
+    os.makedirs(args.outdir, exist_ok=True)
 
-        pool = Pool(processes=int(args.procnum))
-        results = pool.map(_cal_interface_score, process_list)
-        pool.close()
-        pool.join()
+    scoredir = os.path.join(args.outdir, 'scores')
+    os.makedirs(scoredir, exist_ok=True)
 
-        print("111111111111111111111111")
-        scores_dict = {'dockq_wave': {}, 'dockq_ave': {}, 'cad_score': {}}
-        for i in range(len(pdbs)):
-            for j in range(len(pdbs)):
-                pdb1 = pdbs[i]
-                pdb2 = pdbs[j]
-                if pdb1 == pdb2:
-                    continue
-                jsonfile = f"{args.outdir}/{target}/{pdb1}_{pdb2}.json"
-                if not os.path.exists(jsonfile):
-                    raise Exception(f"cannot find {jsonfile}")
-                
-                with open(jsonfile) as f:
-                    data = json.load(f)
-                    scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"] = data["dockq_wave"]
-                    scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"] = data["dockq_ave"]
-                    scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
-
-
-        print("222222222222222222222222")
-        dockq_wave_dict, dockq_ave_dict, cad_score_dict = {}, {}, {}
-        for i in range(len(pdbs)):
+    pdbs = sorted(os.listdir(args.indir))
+    process_list = []
+    for i in range(len(pdbs)):
+        for j in range(len(pdbs)):
             pdb1 = pdbs[i]
-            dockq_waves, dockq_aves, cad_scores = [], [], []
-            for j in range(len(pdbs)):
-                pdb2 = pdbs[j]
-                dockq_wave, dockq_ave, cad_score = 1, 1, 1
-                if pdb1 != pdb2:
-                    if f"{pdb1}_{pdb2}" not in scores_dict['dockq_wave']:
-                        print(f"Cannot find {pdb1}_{pdb2}!")
+            pdb2 = pdbs[j]
+            if pdb1 == pdb2:
+                continue
+            outfile = os.path.join(scoredir, f"{pdb1}_{pdb2}.json")
+            if os.path.exists(outfile):
+                continue
+            process_list.append([args.indir, pdb1, pdb2, scoredir])
 
-                    if f"{pdb1}_{pdb2}" not in scores_dict['dockq_ave']:
-                        print(f"Cannot find {pdb1}_{pdb2}!")
+    pool = Pool(processes=int(args.procnum))
+    results = pool.map(_cal_interface_score, process_list)
+    pool.close()
+    pool.join()
 
-                    if f"{pdb1}_{pdb2}" not in scores_dict['cad_score']:
-                        print(f"Cannot find {pdb1}_{pdb2}!")
+    scores_dict = {'dockq_wave': {}, 'dockq_ave': {}, 'cad_score': {}}
+    for i in range(len(pdbs)):
+        for j in range(len(pdbs)):
+            pdb1 = pdbs[i]
+            pdb2 = pdbs[j]
+            if pdb1 == pdb2:
+                continue
+            jsonfile = os.path.join(scoredir, f"{pdb1}_{pdb2}.json")
+            if not os.path.exists(jsonfile):
+                raise Exception(f"cannot find {jsonfile}")
+            
+            try:
+                with open(jsonfile) as f:
+                    # print(jsonfile)
+                    data = json.loads(f.read())
+                    scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"] = data["dockq_wave_full"]
+                    scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"] = data["dockq_ave_full"]
+                    scores_dict['cad_score'][f"{pdb1}_{pdb2}"] = data["cad_score"]
+            except Exception as e:
+                print(jsonfile)
+                print(e)
 
-                    dockq_wave = scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"]
-                    dockq_ave = scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"]
-                    cad_score = scores_dict['cad_score'][f"{pdb1}_{pdb2}"]
+    dockq_wave_dict, dockq_ave_dict, cad_score_dict = {}, {}, {}
+    for i in range(len(pdbs)):
+        pdb1 = pdbs[i]
+        dockq_waves, dockq_aves, cad_scores = [], [], []
+        for j in range(len(pdbs)):
+            pdb2 = pdbs[j]
+            dockq_wave, dockq_ave, cad_score = 1, 1, 1
+            if pdb1 != pdb2:
+                if f"{pdb1}_{pdb2}" not in scores_dict['dockq_wave']:
+                    print(f"Cannot find {pdb1}_{pdb2}!")
 
-                dockq_waves += [dockq_wave]
-                dockq_aves += [dockq_ave]
-                cad_scores += [cad_score]
+                if f"{pdb1}_{pdb2}" not in scores_dict['dockq_ave']:
+                    print(f"Cannot find {pdb1}_{pdb2}!")
 
-            dockq_wave_dict[pdb1] = dockq_waves
-            dockq_ave_dict[pdb1] = dockq_aves
-            cad_score_dict[pdb1] = cad_scores
+                if f"{pdb1}_{pdb2}" not in scores_dict['cad_score']:
+                    print(f"Cannot find {pdb1}_{pdb2}!")
 
-        print("3333333333333333333333333")
-        pd.DataFrame(dockq_wave_dict).to_csv(args.outdir + '/' + target + '_dockq_wave.csv')
-        pd.DataFrame(dockq_ave_dict).to_csv(args.outdir + '/' + target + '_dockq_ave.csv')
-        pd.DataFrame(cad_score_dict).to_csv(args.outdir + '/' + target + '_cad_score.csv')
+                dockq_wave = scores_dict['dockq_wave'][f"{pdb1}_{pdb2}"]
+                dockq_ave = scores_dict['dockq_ave'][f"{pdb1}_{pdb2}"]
+                cad_score = scores_dict['cad_score'][f"{pdb1}_{pdb2}"]
+
+            dockq_waves += [dockq_wave]
+            dockq_aves += [dockq_ave]
+            cad_scores += [cad_score]
+
+        dockq_wave_dict[pdb1] = dockq_waves
+        dockq_ave_dict[pdb1] = dockq_aves
+        cad_score_dict[pdb1] = cad_scores
+
+    pd.DataFrame(dockq_wave_dict).to_csv(os.path.join(args.outdir, 'dockq_wave.csv'))
+    pd.DataFrame(dockq_ave_dict).to_csv(os.path.join(args.outdir, 'dockq_ave.csv'))
+    pd.DataFrame(cad_score_dict).to_csv(os.path.join(args.outdir, 'cad_score.csv'))
 
 
 if __name__ == '__main__':

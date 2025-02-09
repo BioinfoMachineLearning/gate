@@ -1,2 +1,0 @@
-python gate/feature/mmalign_pairwise.py --indir dataset/CASP15_inhouse/human_dataset/models_filtered_aligned/ --outdir dataset/CASP15_inhouse/human_dataset/pairwise_aligned --mmalign_program /home/bml_casp15/BML_CASP15/tools/MMalign
-python gate/feature/mmalign_pairwise.py --indir dataset/CASP15_inhouse/server_dataset/models_filtered_aligned/ --outdir dataset/CASP15_inhouse/server_dataset/pairwise_aligned --mmalign_program /home/bml_casp15/BML_CASP15/tools/MMalign

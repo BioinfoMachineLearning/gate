@@ -18,10 +18,10 @@ def read_usalign(infile):
 def run_command(inparams):
     usalign_program, indir, pdb1, pdb2, outdir = inparams
     cmd = f"{usalign_program} {indir}/{pdb1} {indir}/{pdb2} -TMscore 6 -ter 1 > {outdir}/{pdb1}_{pdb2}.usalign"
-    print(cmd)
+    # print(cmd)
     os.system(cmd)
     
-def run_pairwise(usalign_program, indir, scoredir, outfile):
+def run_pairwise(usalign_program, indir, scoredir, outfile, process_num):
 
     pdbs = sorted(os.listdir(indir))
 
@@ -37,7 +37,7 @@ def run_pairwise(usalign_program, indir, scoredir, outfile):
                 continue
             process_list.append([usalign_program, indir, pdb1, pdb2, scoredir])
 
-    pool = Pool(processes=50)
+    pool = Pool(processes=process_num)
     results = pool.map(run_command, process_list)
     pool.close()
     pool.join()
@@ -70,21 +70,19 @@ def run_pairwise(usalign_program, indir, scoredir, outfile):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--indir', type=str, required=True)
     parser.add_argument('--usalign_program', type=str, required=True)
     parser.add_argument('--outdir', type=str, required=True)
+    parser.add_argument('--process_num', type=int, default=180)
 
     args = parser.parse_args()
 
-    for target in os.listdir(args.indir):
-        #if os.path.exists(args.outdir + '/' + target + '.csv'):
-        #    continue
+    scoredir = os.path.join(args.outdir, 'scores')
+    os.makedirs(scoredir, exist_ok=True)
 
-        scoredir = args.outdir + '/' + target
-        makedir_if_not_exists(scoredir)
-
-        outfile = args.outdir + '/' + target + '.csv'
-
-        run_pairwise(args.usalign_program, args.indir + '/' + target, scoredir, outfile)
+    run_pairwise(usalign_program=args.usalign_program, 
+                 indir=args.indir, 
+                 scoredir=scoredir, 
+                 outfile=os.path.join(args.outdir, 'pairwise_usalign.csv'),
+                 process_num=args.process_num)
