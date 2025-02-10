@@ -21,7 +21,41 @@
 
 GATE is a tool designed for estimating protein model accuracy using advanced graph transformers. This repository contains the code, pre-trained models, and instructions for setup and usage.
 
----
+![Program workflow](imgs/Gate_workflow_v2.jpg)
+
+### The overall performance of GATE (MULTICOM_GATE) in CASP16 EMA competition in terms of Z-scores
+
+![CASP16 result](imgs/global_SCORE_summed_zscore_ranking.png)
+
+### The overall performance of GATE (MULTICOM_GATE) in CASP16 EMA competition in terms of per-target average
+
+| **Predictor Name**      | **Pearson's correlation** | **Spearman's correlation** | **Ranking loss** | **AUC**  |
+|-------------------------|------------|------------|------------------|----------|
+| GuijunLab-QA            | 0.6479     | 0.4149     | **0.1195**       | 0.6328   |
+| MULTICOM                | 0.6156     | 0.4380     | _0.1207_         | 0.6660   |
+| **MULTICOM_GATE**       | **0.7076** | _**0.4514**_ | _**0.1221**_     | _**0.6680**_ |
+| MULTICOM_LLM            | _0.6836_   | **0.4808** | 0.1230           | _0.6685_ |
+| MIEnsembles-Server      | 0.6072     | 0.4498     | 0.1325           | 0.6670   |
+| GuijunLab-PAthreader    | 0.5309     | 0.3744     | 0.1331           | 0.6237   |
+| ModFOLDdock2            | _**0.6542**_ | _0.4640_   | 0.1371           | **0.6859** |
+| ModFOLDdock2R           | 0.5724     | 0.3867     | 0.1375           | 0.6518   |
+| VifChartreuse           | 0.2921     | 0.2777     | 0.1440           | 0.6149   |
+| MQA_base                | 0.4331     | 0.2897     | 0.1462           | 0.6085   |
+| MQA_server              | 0.4326     | 0.2913     | 0.1468           | 0.6120   |
+| GuijunLab-Human         | 0.6327     | 0.4148     | 0.1477           | 0.6368   |
+| MULTICOM_human          | 0.5897     | 0.4260     | 0.1518           | 0.6576   |
+| ChaePred                | 0.4548     | 0.3971     | 0.1580           | 0.6534   |
+| AF_unmasked             | 0.4015     | 0.2731     | 0.1595           | 0.6052   |
+| VifChartreuseJaune      | 0.3421     | 0.1756     | 0.1630           | 0.5951   |
+| GuijunLab-Assembly      | 0.5439     | 0.3280     | 0.1636           | 0.6191   |
+| Guijunlab-Complex       | 0.4889     | 0.3019     | 0.1792           | 0.6054   |
+| ModFOLDdock2S           | 0.5285     | 0.3116     | 0.1806           | 0.6084   |
+| MULTICOM_AI             | 0.3281     | 0.2623     | 0.1913           | 0.6057   |
+| COAST                   | 0.3840     | 0.2297     | 0.2091           | 0.6072   |
+| MQA                     | 0.4410     | 0.2425     | 0.2183           | 0.5858   |
+| PIEFold_human           | 0.1929     | 0.1451     | 0.2306           | 0.5497   |
+
+
 
 ## Installation
 
