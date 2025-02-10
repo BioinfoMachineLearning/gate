@@ -13,7 +13,7 @@
    - [Required Arguments](#required-arguments)
    - [Optional Arguments](#optional-arguments)
    - [Example Commands](#example-commands)
-5. [Contact](#contact)
+5. [Citing This Work](#citing-this-work)
 
 ---
 
@@ -193,3 +193,21 @@ Here are examples of how to use the `inference_multimer.py` script with differen
     ```bash
     python inference_multimer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR --pkldir $PKLDIR --use_af_feature True
     ```
+
+## Citing This Work
+If you find this work useful, please cite: 
+
+Liu, J., Neupane, P., & Cheng, J. (2025). Estimating Protein Complex Model Accuracy Using Graph Transformers and Pairwise Similarity Graphs. bioRxiv, 2025-02 (https://doi.org/10.1101/2025.02.04.63656)
+
+```bibtex
+@article {Liu2025.02.04.636562,
+	author = {Liu, Jian and Neupane, Pawan and Cheng, Jianlin},
+	title = {Estimating Protein Complex Model Accuracy Using Graph Transformers and Pairwise Similarity Graphs},
+	elocation-id = {2025.02.04.636562},
+	year = {2025},
+	doi = {10.1101/2025.02.04.636562},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://doi.org/10.1101/2025.02.04.636562},
+	journal = {bioRxiv}
+}
+```
