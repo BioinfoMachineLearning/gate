@@ -29,7 +29,7 @@ GATE is a tool designed for estimating protein model accuracy using advanced gra
 
 ### The overall performance of GATE (MULTICOM_GATE) in CASP16 EMA competition in terms of per-target average
 
-### Table 2. Average per-target evaluation metrics (Pearson's correlation, Spearman's correlation, ranking loss and AUC) of 23 CASP16 predictors in terms of TM-score. The best performance for each metric is shown in bold, the second-best is underlined, and the third-best is underlined and italicized. The methods are ordered by the CASP16 Assessors' score.
+### Table 1. Average per-target evaluation metrics (Pearson's correlation, Spearman's correlation, ranking loss and AUC) of 23 CASP16 predictors in terms of TM-score and Oligo-GDT-TS. The best performance for each metric is shown in bold, the second-best is underlined, and the third-best is underlined and italicized. The methods are ordered by the CASP16 Assessors' score.
 
 | Predictor Name       | Corrᵖ (TM-score) | Corrˢ (TM-score) | Ranking Loss (TM-score) | AUC (TM-score) | Corrᵖ (Oligo-GDT-TS) | Corrˢ (Oligo-GDT-TS) | Ranking Loss (Oligo-GDT-TS) | AUC (Oligo-GDT-TS) |
 |----------------------|------------------|-------------------|------------------------|----------------|---------------------|----------------------|----------------------------|--------------------|
@@ -61,7 +61,7 @@ GATE is a tool designed for estimating protein model accuracy using advanced gra
 
 ## Table 2: Performance of GATE on In-House MULTICOM4 CASP16 models
 
-| Method | TM Corr^p | TM Corr^s | TM Ranking Loss | TM AUC | GDT Corr^p | GDT Corr^s | GDT Ranking Loss | GDT AUC |
+| Method | Corrᵖ (TM-score) | Corrˢ (TM-score) | Ranking Loss (TM-score) | AUC (TM-score) | Corrᵖ (Oligo-GDT-TS) | Corrˢ (Oligo-GDT-TS) | Ranking Loss (Oligo-GDT-TS) | AUC (Oligo-GDT-TS) |
 |---|---|---|---|---|---|---|---|---|
 | PSS | _0.3947_ | 0.2523 | 0.1388 | 0.6384 | 0.3385 | 0.2495 | 0.1582 | 0.6282* |
 | AlphaFold plDDT_norm | 0.3806 | _0.2731_ | 0.1334 | **0.6557** | _0.3663_ | _0.2557_ | **0.1206** | **0.6587** |
@@ -74,7 +74,7 @@ GATE is a tool designed for estimating protein model accuracy using advanced gra
 
 ### Table 3: Performance of GATE models and other methods on the CASP15 dataset
 
-| Method | TM Corr^p | TM Corr^s | TM Ranking Loss | TM AUC | DockQ Corr^p | DockQ Corr^s | DockQ Ranking Loss | DockQ AUC |
+| Method | Corrᵖ (TM-score) | Corrˢ (TM-score) | Ranking Loss (TM-score) | AUC (TM-score) | Corrᵖ (DockQ) | Corrˢ (DockQ) | Ranking Loss (DockQ) | AUC (DockQ) |
 |--------|------------|-----------|------------------|--------|--------------|--------------|--------------------|----------|
 | **CASP15 EMA Predictors** |||||||||
 | VoroMQA-select-2020 | 0.3944* | 0.3692* | 0.1735* | 0.6663* | 0.4322* | 0.4044 | 0.2682 | 0.6741 |
