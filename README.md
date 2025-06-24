@@ -29,37 +29,37 @@ GATE is a tool designed for estimating protein model accuracy using advanced gra
 
 ### The overall performance of GATE (MULTICOM_GATE) in CASP16 EMA competition in terms of per-target average
 
-### Table 1. Average per-target evaluation metrics (Pearson's correlation, Spearman's correlation, ranking loss and AUC) of 23 CASP16 predictors in terms of TM-score and Oligo-GDT-TS. The best performance for each metric is shown in bold, the second-best is underlined, and the third-best is underlined and italicized. The methods are ordered by the CASP16 Assessors' score.
+### Table 1. Average per-target evaluation metrics (Pearson's correlation, Spearman's correlation, ranking loss and AUC) of 23 CASP16 predictors in terms of TM-score and Oligo-GDT-TS. The best performance for each metric is marked with [BEST], second-best with [2nd], and third-best with [3rd]. 
 
 | Predictor Name       | Corrᵖ (TM-score) | Corrˢ (TM-score) | Ranking Loss (TM-score) | AUC (TM-score) | Corrᵖ (Oligo-GDT-TS) | Corrˢ (Oligo-GDT-TS) | Ranking Loss (Oligo-GDT-TS) | AUC (Oligo-GDT-TS) |
-|----------------------|------------------|-------------------|------------------------|----------------|---------------------|----------------------|----------------------------|--------------------|
-| MULTICOM_LLM         | _**0.6836**_     | **0.4808**        | 0.1230                | _**0.6685**_    | _**0.6722**_        | _0.4656_             | **0.1252**                 | _**0.6603**_       |
-| MULTICOM_GATE        | **0.7076**       | 0.4514            | _*0.1221*_            | _*0.6680*_      | **0.7235**          | _*0.4399*_           | _0.1328_                   | 0.6461             |
-| AssemblyConsensus    | 0.6367           | _0.4661_          | 0.1824                | 0.6584         | **0.7701**          | **0.5163**           | 0.1753                     | **0.6702**         |
-| ModFOLDdock2         | _*0.6542*_       | _*0.4640*_        | 0.1371                | **0.6859**      | 0.6547              | 0.4143               | 0.1530                     | 0.6588             |
-| MULTICOM             | 0.6156           | 0.4380            | _0.1207_              | 0.6660         | 0.6413              | 0.4319               | _*0.1368*_                 | 0.6536             |
-| MIEnsembles-Server   | 0.6072           | 0.4498            | 0.1325                | 0.6670         | 0.6084              | 0.4091               | 0.1451                     | _**0.6671**_       |
-| GuijunLab-QA         | 0.6480           | 0.4149            | **0.1195**            | 0.6328         | 0.6524              | 0.3972               | 0.1406                     | 0.6377             |
-| GuijunLab-Human      | 0.6327           | 0.4148            | 0.1477                | 0.6368         | 0.6404              | 0.3976               | 0.1499                     | 0.6483             |
-| MULTICOM_human       | 0.5897           | 0.4260            | 0.1518                | 0.6576         | 0.6149              | 0.4217               | 0.1498                     | 0.6572             |
-| GuijunLab-PAthreader | 0.5309           | 0.3744            | 0.1331                | 0.6237         | 0.6360              | 0.4353               | 0.1371                     | 0.6382             |
-| ModFOLDdock2R        | 0.5724           | 0.3867            | 0.1375                | 0.6518         | 0.6339              | 0.3724               | 0.1483                     | 0.6355             |
-| GuijunLab-Assembly   | 0.5439           | 0.3280            | 0.1636                | 0.6191         | 0.5809              | 0.3135               | 0.1611                     | 0.6182             |
-| ChaePred             | 0.4548           | 0.3971            | 0.1580                | 0.6534         | 0.4875              | 0.3673               | 0.1563                     | 0.6331             |
-| ModFOLDdock2S        | 0.5285           | 0.3116            | 0.1806                | 0.6084         | 0.5819              | 0.3335               | 0.1648                     | 0.6129             |
-| MQA_server           | 0.4326           | 0.2913            | 0.1468                | 0.6120         | 0.5617              | 0.3708               | 0.1521                     | 0.6323             |
-| MQA_base             | 0.4331           | 0.2897            | 0.1462                | 0.6085         | 0.5533              | 0.3597               | 0.1509                     | 0.6281             |
-| GuijunLab-Complex    | 0.4889           | 0.3019            | 0.1792                | 0.6054         | 0.5693              | 0.3310               | 0.1772                     | 0.6077             |
-| AF_unmasked          | 0.4015           | 0.2731            | 0.1595                | 0.6052         | 0.4354              | 0.2875               | 0.1815                     | 0.6113             |
-| MQA                  | 0.4410           | 0.2425            | 0.2183                | 0.5858         | 0.4911              | 0.2631               | 0.2499                     | 0.5874             |
-| COAST                | 0.3840           | 0.2297            | 0.2091                | 0.6072         | 0.4484              | 0.2678               | 0.2204                     | 0.6078             |
-| MULTICOM_AI          | 0.3281           | 0.2623            | 0.1913                | 0.6057         | 0.3843              | 0.2834               | 0.1963                     | 0.6111             |
-| VifChartreuse        | 0.2921           | 0.2777            | 0.1440                | 0.6149         | 0.2982              | 0.2469               | 0.1641                     | 0.5956             |
-| VifChartreuseJaune   | 0.3421           | 0.1756            | 0.1630                | 0.5951         | 0.3300              | 0.1548               | 0.1915                     | 0.5811             |
-| PIEFold_human        | 0.1929           | 0.1451            | 0.2306                | 0.5497         | 0.2599              | 0.1759               | 0.2409                     | 0.5541             |
+|----------------------|------------------|-------------------|-------------------------|----------------|---------------------|----------------------|----------------------------|--------------------|
+| MULTICOM_LLM         | 0.6836 [2nd]    | 0.4808 [BEST]    | 0.1230          | 0.6685 [2nd]   | 0.6722 [3rd]      | 0.4656 [2nd]       | 0.1252 [BEST]             | 0.6603 [3rd]      |
+| **MULTICOM_GATE**        | 0.7076 [BEST]   | 0.4514     | 0.1221 [3rd]          | 0.6680 [3rd]   | 0.7235 [2nd]      | 0.4399 [3rd]       | 0.1328 [2nd]             | 0.6461            |
+| AssemblyConsensus    | 0.6367          | 0.4661 [2nd]     | 0.1824                | 0.6584         | 0.7701 [BEST]     | 0.5163 [BEST]      | 0.1753                   | 0.6702 [BEST]     |
+| ModFOLDdock2         | 0.6542 [3rd]    | 0.4640 [3rd]     | 0.1371                | 0.6859 [BEST]  | 0.6547            | 0.4143             | 0.1530                   | 0.6588            |
+| MULTICOM             | 0.6156          | 0.4380           | 0.1207 [2nd]         | 0.6660         | 0.6413            | 0.4319             | 0.1368 [3rd]            | 0.6536            |
+| MIEnsembles-Server   | 0.6072          | 0.4498           | 0.1325                | 0.6670         | 0.6084            | 0.4091             | 0.1451                   | 0.6671 [2nd]      |
+| GuijunLab-QA         | 0.6480          | 0.4149           | 0.1195 [BEST]         | 0.6328         | 0.6524            | 0.3972             | 0.1406                   | 0.6377            |
+| GuijunLab-Human      | 0.6327          | 0.4148           | 0.1477                | 0.6368         | 0.6404            | 0.3976             | 0.1499                   | 0.6483            |
+| MULTICOM_human       | 0.5897          | 0.4260           | 0.1518                | 0.6576         | 0.6149            | 0.4217             | 0.1498                   | 0.6572            |
+| GuijunLab-PAthreader | 0.5309          | 0.3744           | 0.1331                | 0.6237         | 0.6360            | 0.4353      | 0.1371                   | 0.6382            |
+| ModFOLDdock2R        | 0.5724          | 0.3867           | 0.1375                | 0.6518         | 0.6339            | 0.3724             | 0.1483                   | 0.6355            |
+| GuijunLab-Assembly   | 0.5439          | 0.3280           | 0.1636                | 0.6191         | 0.5809            | 0.3135             | 0.1611                   | 0.6182            |
+| ChaePred             | 0.4548          | 0.3971           | 0.1580                | 0.6534         | 0.4875            | 0.3673             | 0.1563                   | 0.6331            |
+| ModFOLDdock2S        | 0.5285          | 0.3116           | 0.1806                | 0.6084         | 0.5819            | 0.3335             | 0.1648                   | 0.6129            |
+| MQA_server           | 0.4326          | 0.2913           | 0.1468                | 0.6120         | 0.5617            | 0.3708             | 0.1521                   | 0.6323            |
+| MQA_base             | 0.4331          | 0.2897           | 0.1462                | 0.6085         | 0.5533            | 0.3597             | 0.1509                   | 0.6281            |
+| GuijunLab-Complex    | 0.4889          | 0.3019           | 0.1792                | 0.6054         | 0.5693            | 0.3310             | 0.1772                   | 0.6077            |
+| AF_unmasked          | 0.4015          | 0.2731           | 0.1595                | 0.6052         | 0.4354            | 0.2875             | 0.1815                   | 0.6113            |
+| MQA                  | 0.4410          | 0.2425           | 0.2183                | 0.5858         | 0.4911            | 0.2631             | 0.2499                   | 0.5874            |
+| COAST                | 0.3840          | 0.2297           | 0.2091                | 0.6072         | 0.4484            | 0.2678             | 0.2204                   | 0.6078            |
+| MULTICOM_AI          | 0.3281          | 0.2623           | 0.1913                | 0.6057         | 0.3843            | 0.2834             | 0.1963                   | 0.6111            |
+| VifChartreuse        | 0.2921          | 0.2777           | 0.1440                | 0.6149         | 0.2982            | 0.2469             | 0.1641                   | 0.5956            |
+| VifChartreuseJaune   | 0.3421          | 0.1756           | 0.1630                | 0.5951         | 0.3300            | 0.1548             | 0.1915                   | 0.5811            |
+| PIEFold_human        | 0.1929          | 0.1451           | 0.2306                | 0.5497         | 0.2599            | 0.1759             | 0.2409                   | 0.5541            |
 
 
-## Table 2: Performance of GATE on In-House MULTICOM4 CASP16 models
+## Table 2: Comparison of evaluation metrics (Pearson's correlation, Spearman's correlation, ranking loss, and AUC) for different EMA methods applied to in-house structural models generated by MULTICOM4 in the CASP16 blind experiment. The evaluation was conducted using both TM-score and Oligo-GDT-TS. The best performance for each metric is shown in bold, and the second-best is underlined. The values marked with * are statistically significantly worse (p $<$ 0.05) than the GATE-Ensemble baseline based on the one-sided Wilcoxon signed-rank test.
 
 | Method | Corrᵖ (TM-score) | Corrˢ (TM-score) | Ranking Loss (TM-score) | AUC (TM-score) | Corrᵖ (Oligo-GDT-TS) | Corrˢ (Oligo-GDT-TS) | Ranking Loss (Oligo-GDT-TS) | AUC (Oligo-GDT-TS) |
 |---|---|---|---|---|---|---|---|---|
@@ -72,7 +72,7 @@ GATE is a tool designed for estimating protein model accuracy using advanced gra
 | GCPNet-EMA_norm | 0.3597 | 0.2491 | 0.1345 | 0.6431 | 0.3555 | 0.2642 | 0.1691 | 0.6476 |
 | **GATE-Ensemble** | **0.4083** | **0.2774** | _0.1327_ | _0.6469_ | **0.3801** | **0.2989** | _0.1626_ | _0.6475_ |
 
-### Table 3: Performance of GATE models and other methods on the CASP15 dataset
+### Table 3: Comparison of GATE model, GATE ablation variants, CASP15 EMA predictors and other methods in terms of Pearson's correlation, Spearman's correlation, ranking loss, and AUC based on TM-score and DockQ on the CASP15 complex structure dataset. The term norm indicates that the quality scores predicted by a method are normalized by the length of the predicted structure relative to the native structure. Only the performance of the normalization version of such a method is shown because their unnormalized outputs do not account for partial structures. Bold font denotes the best result, while the second best result is underlined. The values marked with * are statistically significantly worse (p $<$ 0.05) than the GATE-Ensemble baseline based on the one-sided Wilcoxon signed-rank test.
 
 | Method | Corrᵖ (TM-score) | Corrˢ (TM-score) | Ranking Loss (TM-score) | AUC (TM-score) | Corrᵖ (DockQ) | Corrˢ (DockQ) | Ranking Loss (DockQ) | AUC (DockQ) |
 |--------|------------|-----------|------------------|--------|--------------|--------------|--------------------|----------|
