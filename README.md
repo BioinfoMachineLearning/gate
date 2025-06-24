@@ -23,7 +23,7 @@ GATE is a tool designed for estimating protein model accuracy using advanced gra
 
 ![Program workflow](imgs/Gate_workflow_v2.jpg)
 
-### The overall performance of GATE (MULTICOM_GATE) in CASP16 EMA competition in terms of Z-scores
+### The overall performance of 23 CASP16 predictors in estimating the accuracy of the structural models of 36 out of 38 CASP16 multimer targets according to the z-scores of multiple evaluation metrics (i.e., Pearson's correlation, Spearman's correlation, AUC, and ranking loss) in terms of both TM-score and oligomer GDT-TS score. Each kind of z-score is denoted by a colored bar. The predictors are ordered according to the weighted sum of all the z-scores. 
 
 ![CASP16 result](imgs/global_SCORE_summed_zscore_ranking.png)
 
