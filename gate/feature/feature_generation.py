@@ -498,7 +498,7 @@ def complex_feature_generation_lite(fasta_path, input_model_dir, output_dir, con
             print("Alphafold feature scores has been generated!")
 
 
-def print_monomer_feature_generation(targetname, fasta_path, input_model_dir, output_dir, config, contact_map_file, dist_map_file, features_monomer):
+def print_monomer_feature_generation(targetname, fasta_path, input_model_dir, output_dir, config, features_monomer):
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -515,7 +515,7 @@ def print_monomer_feature_generation(targetname, fasta_path, input_model_dir, ou
     features_monomer.deeprank3_cluster = os.path.join(workdir, 'DeepRank3_Cluster.txt')
     logfile = os.path.join(workdir, 'DeepRank3_Cluster.log')
     if not os.path.exists(features_monomer.deeprank3_cluster) and not os.path.exists(logfile):
-        cmd = f"sh {config.scripts.deeprank3_cluster_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} {contact_map_file} {dist_map_file} &> {logfile} &"
+        cmd = f"sh {config.scripts.deeprank3_cluster_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} None None &> {logfile} &"
         print(cmd + '\n')
     else:
         print("DeepRank3_Cluster scores has been generated!")
@@ -597,14 +597,14 @@ def print_monomer_feature_generation(targetname, fasta_path, input_model_dir, ou
     workdir = os.path.join(feature_dir, 'DeepRank3')
     features_monomer.deeprank3_singleqa = os.path.join(workdir, 'DeepRank3_SingleQA.txt')
     if not os.path.exists(features_monomer.deeprank3_singleqa):
-        cmd = f"sh {config.scripts.deeprank3_singleqa_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} {contact_map_file} {dist_map_file}"
+        cmd = f"sh {config.scripts.deeprank3_singleqa_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} None None"
         print(cmd + '\n')
     else:
         print("DeepRank3_SingleQA scores has been generated!")
 
     features_monomer.deeprank3_singleqa_lite = os.path.join(workdir, 'DeepRank3_SingleQA_lite.txt')
     if not os.path.exists(features_monomer.deeprank3_singleqa_lite):
-        cmd = f"sh {config.scripts.deeprank3_singleqa_lite_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} {contact_map_file} {dist_map_file}"
+        cmd = f"sh {config.scripts.deeprank3_singleqa_lite_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} None None"
         print(cmd + '\n')
     else:   
         print("DeepRank3_SingleQA_lite scores has been generated!")
@@ -613,7 +613,7 @@ def print_monomer_feature_generation(targetname, fasta_path, input_model_dir, ou
 
     print("#### All features has been generated ####")
 
-def monomer_feature_generation(targetname, fasta_path, input_model_dir, output_dir, config, contact_map_file, dist_map_file, features_monomer):
+def monomer_feature_generation(targetname, fasta_path, input_model_dir, output_dir, config, features_monomer):
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -638,7 +638,7 @@ def monomer_feature_generation(targetname, fasta_path, input_model_dir, output_d
     features_monomer.deeprank3_cluster = os.path.join(workdir, 'DeepRank3_Cluster.txt')
     logfile = os.path.join(workdir, 'DeepRank3_Cluster.log')
     if not os.path.exists(features_monomer.deeprank3_cluster) and not os.path.exists(logfile):
-        cmd = f"sh {config.scripts.deeprank3_cluster_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} {contact_map_file} {dist_map_file} &> {logfile} &"
+        cmd = f"sh {config.scripts.deeprank3_cluster_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} None None &> {logfile} &"
         print(cmd + '\n')
         os.system(cmd)
     else:
@@ -724,7 +724,7 @@ def monomer_feature_generation(targetname, fasta_path, input_model_dir, output_d
     workdir = os.path.join(feature_dir, 'DeepRank3')
     features_monomer.deeprank3_singleqa = os.path.join(workdir, 'DeepRank3_SingleQA.txt')
     if not os.path.exists(features_monomer.deeprank3_singleqa):
-        cmd = f"sh {config.scripts.deeprank3_singleqa_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} {contact_map_file} {dist_map_file}"
+        cmd = f"sh {config.scripts.deeprank3_singleqa_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} None None"
         print(cmd + '\n')
         os.system(cmd)
     else:
@@ -732,7 +732,7 @@ def monomer_feature_generation(targetname, fasta_path, input_model_dir, output_d
 
     features_monomer.deeprank3_singleqa_lite = os.path.join(workdir, 'DeepRank3_SingleQA_lite.txt')
     if not os.path.exists(features_monomer.deeprank3_singleqa_lite):
-        cmd = f"sh {config.scripts.deeprank3_singleqa_lite_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} {contact_map_file} {dist_map_file}"
+        cmd = f"sh {config.scripts.deeprank3_singleqa_lite_script} {targetname} {fasta_path} {aligned_model_dir} {workdir} None None"
         print(cmd + '\n')
         os.system(cmd)
     else:   

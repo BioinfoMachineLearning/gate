@@ -14,6 +14,7 @@
    - [Optional Arguments](#optional-arguments)
    - [Example Commands](#example-commands)
 5. [Citing This Work](#citing-this-work)
+6. [Bonus](#bonus)
 
 ---
 
@@ -262,4 +263,42 @@ Liu, J., Neupane, P., & Cheng, J. (2025). Estimating Protein Complex Model Accur
 	URL = {https://doi.org/10.1101/2025.02.04.636562},
 	journal = {bioRxiv}
 }
+```
+
+## Bonus
+
+### Monomer Structure Estimation
+
+To estimate the accuracy of protein tertiary structures with **GATE**, you need to install an additional dependency: [DeepRank3](https://github.com/jianlin-cheng/DeepRank3).
+
+```bash
+cd tools
+git clone https://github.com/jianlin-cheng/DeepRank3/
+# Follow the installation instructions in DeepRank3
+```
+
+Once DeepRank3 is installed under the `tools` directory, you can run the `inference_monomer.py` script to evaluate the quality of a pool of protein tertiary structure models.
+
+#### Required Arguments:
+* --fasta_path FASTA_PATH
+
+    The path to the input FASTA file containing the protein sequences.
+
+* --input_model_dir INPUT_MODEL_DIR
+    
+    The directory containing the input protein models.
+
+* --output_dir OUTPUT_DIR
+    
+    The directory where the output results will be saved.
+
+#### Optional Arguments: 
+
+* --sample_times SAMPLE_TIMES
+    Number of times to sample the models. Default is 5.
+
+#### Example Command:
+
+```bash
+python inference_monomer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR
 ```
