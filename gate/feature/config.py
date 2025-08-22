@@ -1995,3 +1995,19 @@ class features_multimer_dict:
         self.gcpnet_ema = ""
         self.voro = ""
         self.common_interface = ""
+
+
+class features_monomer_dict:
+    def __init__(self):
+        self.pairwise_gdtscore = ""
+        self.pairwise_tmscore = ""
+        self.pairwise_cad_score = ""
+        self.pairwise_lddt = ""
+        self.plddt = ""
+        self.enqa = ""
+        self.gcpnet_ema = ""
+        self.deeprank3_cluster = ""
+        self.deeprank3_singleqa = ""
+        self.deeprank3_singleqa_lite = ""
+        self.deeprank3_features = ""
+       
