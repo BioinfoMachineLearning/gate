@@ -250,8 +250,6 @@ Here are examples of how to use the `inference_multimer.py` script with differen
 ## Citing This Work
 If you find this work useful, please cite: 
 
-Liu, J., Neupane, P., & Cheng, J. (2025). Estimating Protein Complex Model Accuracy Using Graph Transformers and Pairwise Similarity Graphs. bioRxiv, 2025-02 (https://www.biorxiv.org/content/10.1101/2025.02.04.636562v1)
-
 ```bibtex
 @article{10.1093/bioadv/vbaf180,
     author = {Liu, Jian and Neupane, Pawan and Cheng, Jianlin},
