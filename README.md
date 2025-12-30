@@ -120,7 +120,9 @@ cd gate
 ```
 
 
-### Install Mamba
+### Install Mamba 
+
+Note: Please install Mambaforge inside the gate repository directory to avoid path and environment conflicts.
 
 ```
 wget "https://github.com/conda-forge/miniforge/releases/download/23.1.0-3/Mambaforge-$(uname)-$(uname -m).sh"
