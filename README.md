@@ -166,7 +166,7 @@ singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:lates
 # Install python enviorment for gate
 mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
 mamba install -c dglteam dgl-cuda11.0
-mamba install pandas biopython
+mamba install pandas biopython scikit-learn
 
 # Install python enviorment for GCPNet-EMA
 mamba env create -f tools/GCPNet-EMA/environment.yaml
