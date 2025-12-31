@@ -122,11 +122,11 @@ cd gate
 
 ### Install Mamba 
 
-Note: Please install Mambaforge inside the gate repository directory to avoid path and environment conflicts.
+Note: The following commands will install Mambaforge inside the gate repository directory to avoid path and environment conflicts.
 
 ```
 wget "https://github.com/conda-forge/miniforge/releases/download/23.1.0-3/Mambaforge-$(uname)-$(uname -m).sh"
-bash Mambaforge-$(uname)-$(uname -m).sh 
+bash Mambaforge-$(uname)-$(uname -m).sh -b -p "$(pwd)/mambaforge"
 rm Mambaforge-$(uname)-$(uname -m).sh
 source ~/.bashrc  
 ```
