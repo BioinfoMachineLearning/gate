@@ -154,6 +154,14 @@ git clone https://github.com/kliment-olechnovic/ftdmp
 # Install CDPred
 git clone https://github.com/BioinfoMachineLearning/CDPred
 
+cd CDPred
+mkdir databases && cd databases
+aria2c -x 10 https://zenodo.org/record/7650566/files/uniref90_01_2020.tar.xz?download=1
+xz -d -T 4 uniref90_01_2020.tar.xz
+tar -xvf uniref90_01_2020.tar
+
+# Modify the Uniref90 path in ./lib/constants.py as /Download_Path/uniref90_01_2020/uniref90
+
 # Install openstructure
 docker pull registry.scicore.unibas.ch/schwede/openstructure:latest
 # or
