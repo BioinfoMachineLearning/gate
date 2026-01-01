@@ -167,6 +167,7 @@ singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:lates
 mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
 mamba install -c dglteam dgl-cuda11.0
 mamba install pandas biopython scikit-learn
+mamba install -c conda-forge ml-collections
 
 # Install python enviorment for GCPNet-EMA
 mamba env create -f tools/GCPNet-EMA/environment.yaml
@@ -202,9 +203,9 @@ sh scripts/download_uniref90.sh databases/
 
 ### **Configuration**
     
-    * Replace the contents for the ROOTDIR in gate/feature/config.py with your installation path
-
-    * Set use_docker to False if using Singularity instead of Docker.
+1. Replace the value of `$ROOTDIR` in `gate/feature/config.py` with your installation path.
+2. Update the UniRef90 database path in `gate/tools/CDPred/lib/constants.py` to your actual location.
+3. Set `use_docker = False` if you are using Singularity instead of Docker.
 
 ## Usage
 
