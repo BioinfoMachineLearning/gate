@@ -160,7 +160,7 @@ aria2c -x 10 https://zenodo.org/record/7650566/files/uniref90_01_2020.tar.xz?dow
 xz -d -T 4 uniref90_01_2020.tar.xz
 tar -xvf uniref90_01_2020.tar
 
-# Modify the Uniref90 path in ./lib/constants.py as /Download_Path/uniref90_01_2020/uniref90
+# Note for configuring CDPred: Modify the Uniref90 path in ./lib/constants.py as /Download_Path/uniref90_01_2020/uniref90
 
 # Install openstructure
 docker pull registry.scicore.unibas.ch/schwede/openstructure:latest
@@ -171,13 +171,13 @@ singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:lates
 ### Set Up Python Environments
 
 ``` 
-# Install python enviorment for gate
+# Install python environment for gate
 mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
 mamba install -c dglteam dgl-cuda11.0
 mamba install pandas biopython scikit-learn
 mamba install -c conda-forge ml-collections
 
-# Install python enviorment for GCPNet-EMA
+# Install python environment for GCPNet-EMA
 mamba env create -f tools/GCPNet-EMA/environment.yaml
 mamba activate GCPNet-EMA
 pip3 install -e tools/GCPNet-EMA
