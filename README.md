@@ -128,7 +128,7 @@ Note: The following commands will install Mambaforge inside the gate repository 
 wget "https://github.com/conda-forge/miniforge/releases/download/23.1.0-3/Mambaforge-$(uname)-$(uname -m).sh"
 bash Mambaforge-$(uname)-$(uname -m).sh -b -p "$(pwd)/mambaforge"
 rm Mambaforge-$(uname)-$(uname -m).sh
-source ~/.bashrc  
+source ~/.bashrc
 ```
 
 ### Install tools
@@ -172,10 +172,8 @@ singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:lates
 
 ``` 
 # Install python environment for gate
-mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
-mamba install -c dglteam dgl-cuda11.0
-mamba install pandas biopython scikit-learn
-mamba install -c conda-forge ml-collections
+mamba env create -f envs/gate.yaml
+pip3 install -e .
 
 # Install python environment for GCPNet-EMA
 mamba env create -f tools/GCPNet-EMA/environment.yaml
