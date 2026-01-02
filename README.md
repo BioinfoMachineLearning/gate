@@ -171,10 +171,6 @@ singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:lates
 ### Set Up Python Environments
 
 ``` 
-# Install python environment for gate
-mamba env create -f envs/gate.yaml
-pip3 install -e .
-
 # Install python environment for GCPNet-EMA
 mamba env create -f tools/GCPNet-EMA/environment.yaml
 mamba activate GCPNet-EMA
@@ -195,6 +191,10 @@ mamba env create -f envs/ftdmp.yaml
 # Install python enviorment for CDPred
 mamba env create -f envs/cdpred.yaml
 
+# Install python environment for gate
+mamba env create -f envs/gate.yaml
+mamba activate gate
+pip3 install -e .
 ```
 
 ### Download databases (~2.5T)
@@ -249,10 +249,12 @@ Here are examples of how to use the `inference_multimer.py` script with differen
 1. **Not using AlphaFold Features (default)**
 
    ```bash
+   mamba activate gate
    python inference_multimer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR
 
 2. **Using AlphaFold Features**
     ```bash
+    mamba activate gate
     python inference_multimer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR --pkldir $PKLDIR --use_af_feature True
     ```
 
