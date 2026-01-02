@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gate"
+version = "0.1.0"
+description = "Graph Transformers for Estimating Protein Model Accuracy"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["gate"]
