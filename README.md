@@ -122,11 +122,11 @@ cd gate
 
 ### Install Mamba 
 
-Note: Please install Mambaforge inside the gate repository directory to avoid path and environment conflicts.
+Note: The following commands will install Mambaforge inside the gate repository directory to avoid path and environment conflicts.
 
 ```
 wget "https://github.com/conda-forge/miniforge/releases/download/23.1.0-3/Mambaforge-$(uname)-$(uname -m).sh"
-bash Mambaforge-$(uname)-$(uname -m).sh 
+bash Mambaforge-$(uname)-$(uname -m).sh -b -p "$(pwd)/mambaforge"
 rm Mambaforge-$(uname)-$(uname -m).sh
 source ~/.bashrc  
 ```
@@ -154,6 +154,14 @@ git clone https://github.com/kliment-olechnovic/ftdmp
 # Install CDPred
 git clone https://github.com/BioinfoMachineLearning/CDPred
 
+cd CDPred
+mkdir databases && cd databases
+aria2c -x 10 https://zenodo.org/record/7650566/files/uniref90_01_2020.tar.xz?download=1
+xz -d -T 4 uniref90_01_2020.tar.xz
+tar -xvf uniref90_01_2020.tar
+
+# Note for configuring CDPred: Modify the Uniref90 path in ./lib/constants.py as /Download_Path/uniref90_01_2020/uniref90
+
 # Install openstructure
 docker pull registry.scicore.unibas.ch/schwede/openstructure:latest
 # or
@@ -163,12 +171,13 @@ singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:lates
 ### Set Up Python Environments
 
 ``` 
-# Install python enviorment for gate
+# Install python environment for gate
 mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
 mamba install -c dglteam dgl-cuda11.0
-mamba install pandas biopython
+mamba install pandas biopython scikit-learn
+mamba install -c conda-forge ml-collections
 
-# Install python enviorment for GCPNet-EMA
+# Install python environment for GCPNet-EMA
 mamba env create -f tools/GCPNet-EMA/environment.yaml
 mamba activate GCPNet-EMA
 pip3 install -e tools/GCPNet-EMA
@@ -202,9 +211,9 @@ sh scripts/download_uniref90.sh databases/
 
 ### **Configuration**
     
-    * Replace the contents for the ROOTDIR in gate/feature/config.py with your installation path
-
-    * Set use_docker to False if using Singularity instead of Docker.
+1. Replace the value of `$ROOTDIR` in `gate/feature/config.py` with your installation path.
+2. Update the UniRef90 database path in `gate/tools/CDPred/lib/constants.py` to your actual location.
+3. Set `use_docker = False` if you are using Singularity instead of Docker.
 
 ## Usage
 
