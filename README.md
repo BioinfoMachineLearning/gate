@@ -128,7 +128,7 @@ Note: The following commands will install Mambaforge inside the gate repository 
 wget "https://github.com/conda-forge/miniforge/releases/download/23.1.0-3/Mambaforge-$(uname)-$(uname -m).sh"
 bash Mambaforge-$(uname)-$(uname -m).sh -b -p "$(pwd)/mambaforge"
 rm Mambaforge-$(uname)-$(uname -m).sh
-source ~/.bashrc  
+source ~/.bashrc
 ```
 
 ### Install tools
@@ -171,12 +171,6 @@ singularity pull docker://registry.scicore.unibas.ch/schwede/openstructure:lates
 ### Set Up Python Environments
 
 ``` 
-# Install python environment for gate
-mamba install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
-mamba install -c dglteam dgl-cuda11.0
-mamba install pandas biopython scikit-learn
-mamba install -c conda-forge ml-collections
-
 # Install python environment for GCPNet-EMA
 mamba env create -f tools/GCPNet-EMA/environment.yaml
 mamba activate GCPNet-EMA
@@ -197,6 +191,10 @@ mamba env create -f envs/ftdmp.yaml
 # Install python enviorment for CDPred
 mamba env create -f envs/cdpred.yaml
 
+# Install python environment for gate
+mamba env create -f envs/gate.yaml
+mamba activate gate
+pip3 install -e .
 ```
 
 ### Download databases (~2.5T)
@@ -251,10 +249,12 @@ Here are examples of how to use the `inference_multimer.py` script with differen
 1. **Not using AlphaFold Features (default)**
 
    ```bash
+   mamba activate gate
    python inference_multimer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR
 
 2. **Using AlphaFold Features**
     ```bash
+    mamba activate gate
     python inference_multimer.py --fasta_path $FASTA_PATH --input_model_dir $INPUT_MODEL_DIR --output_dir $OUTPUT_DIR --pkldir $PKLDIR --use_af_feature True
     ```
 
