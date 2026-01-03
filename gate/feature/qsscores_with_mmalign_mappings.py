@@ -4,6 +4,7 @@ import subprocess
 import json
 import traceback
 from multiprocessing import Pool
+import multiprocessing
 from ost import io
 from ost import conop
 from ost.mol.alg.chain_mapping import ChainMapper
@@ -28,7 +29,7 @@ def _parse_args():
     parser.add_argument("--indir")
     parser.add_argument("--mmalign_score_dir")
     parser.add_argument("--outdir")
-    parser.add_argument("--procnum", default=180)
+    parser.add_argument("--procnum", default=multiprocessing.cpu_count())
     return parser.parse_args() 
 
 def read_qsscore(infile):
@@ -67,7 +68,6 @@ class MMalignResult:
         :param line: Single line of MMalign SUMMARY file
         :type line: :class:`str`
         """
-        # print(infile)
         
         trg_filename, mdl_filename, trg_mapping_str, mdl_mapping_str = "", "", "" , ""
         tmscore = 0
@@ -140,7 +140,8 @@ def _process_model(trg, mdl, mmalign_result):
         for cname in chem_group:
             trg_chem_group_mapper[cname] = chem_group_idx
     try:
-        chem_mapping, _, _ = mapper.GetChemMapping(mdl)
+        # print(mapper.GetChemMapping(mdl), flush=True)
+        chem_mapping = mapper.GetChemMapping(mdl)[0]
     except RuntimeError as e:
         if str(e).startswith("Residue numbers in input structures must be "):
             return {"QS_global": None,
@@ -156,7 +157,6 @@ def _process_model(trg, mdl, mmalign_result):
         for cname in mdl_chem_group:
             mdl_chem_group_mapper[cname] = chem_group_idx
 
-    # print(mmalign_result.flat_mapping)
     mismatches = list()
     for k,v in mmalign_result.flat_mapping.items():
         if k not in trg_chem_group_mapper or v not in mdl_chem_group_mapper:
@@ -196,9 +196,8 @@ def _process_model(trg, mdl, mmalign_result):
         mdl_s = ''.join([r.one_letter_code for r in mdl_ch.residues])
         mdl_s = seq.CreateSequence(v, mdl_s)
         mdl_s.AttachView(mdl_ch)
-        aln = mapper.Align(trg_s, mdl_s, mol.ChemType.AMINOACIDS)
+        aln = mapper.NWAlign(trg_s, mdl_s, mol.ChemType.AMINOACIDS)
         alns[(k,v)] = aln
-        #print(aln.ToString())
 
     for k in remove_from_flat_mapping:
         del flat_mapping[k]
@@ -214,7 +213,7 @@ def _process_model(trg, mdl, mmalign_result):
 def _cal_qsscore(inparams):
 
     modeldir, pdb1, pdb2, mmalign_out_dir, outdir = inparams
-    #print(os.path.join(mmalign_out_dir, f"{pdb1}_{pdb2}.mmalign")) 
+
     mmalign_data = MMalignResult.FromFile(os.path.join(mmalign_out_dir, f"{pdb1}_{pdb2}.mmalign"))
 
     pdb1_ent = io.LoadPDB(os.path.join(modeldir, pdb1))
@@ -248,8 +247,6 @@ def _cal_qsscore(inparams):
     
     with open(os.path.join(outdir, f"{pdb1}_{pdb2}.qsscore"), 'w') as fh:
         json.dump(results, fh)
-
-    # print(results)
 
     return results
 
